@@ -101,3 +101,17 @@ def get_repositories_by_installation(installation_id):
         """, (installation_id,))
         rows = c.fetchall()
     return [{"internal_id": row[0], "github_repo_id": row[1], "repo_full_name": row[2]} for row in rows]
+
+def get_repository_by_id(repo_id):
+    """Retrieve a repository by its internal ID."""
+    with sqlite3.connect(DB_PATH) as conn:
+        c = conn.cursor()
+        c.execute("""
+            SELECT internal_id, github_repo_id, repo_full_name, installation_id 
+            FROM repositories 
+            WHERE internal_id = ?
+        """, (repo_id,))
+        row = c.fetchone()
+    if row:
+        return {"internal_id": row[0], "github_repo_id": row[1], "repo_full_name": row[2], "installation_id": row[3]}
+    return None

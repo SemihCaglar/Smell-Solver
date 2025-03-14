@@ -1,3 +1,4 @@
+import time
 from flask import Flask, render_template, request, session, redirect, url_for, flash, jsonify
 import config
 from pyngrok import ngrok
@@ -8,14 +9,6 @@ from github_event_handler import process_installation_event
 app = Flask(__name__)
 app.secret_key = 'your_secret_key_here'  # Replace with a secure random key
 
-# Simulated repository "database" for manual additions (for backward compatibility)
-repository_db = {
-    "c4d2e6b8-1a7f-4f92-a9b1-1234567890ab": {"name": "Example Repo 1", "owner": "admin1"},
-    "d8f3a4c2-5b6e-7d8f-9a0b-0987654321cd": {"name": "Example Repo 2", "owner": "admin2"}
-}
-
-# TODO: for the adding, use actual database.
-
 # Initialize the SQLite database
 database.init_db()
 
@@ -23,23 +16,20 @@ database.init_db()
 def main_page():
     if request.method == 'POST':
         repo_id = request.form.get('repository_id')
-        if repo_id in repository_db:
-            if 'repos' not in session:
-                session['repos'] = []
-            if repo_id not in session['repos']:
-                session['repos'].append(repo_id)
-                flash(f"Repository '{repository_db[repo_id]['name']}' added.", "success")
+        repo = database.get_repository_by_id(repo_id)
+        if repo:
+            if 'internal_repo_ids' not in session:
+                session['internal_repo_ids'] = []
+            if repo_id not in session['internal_repo_ids']:
+                session['internal_repo_ids'].append(repo_id)
+                flash(f"Repository '{repo['repo_full_name']}' added.", "success")
             else:
                 flash("Repository already added.", "info")
         else:
             flash("Invalid repository ID.", "danger")
-        return redirect(url_for('main_page'))
+        return redirect(url_for('main_page_route'))
 
-    if "internal_repo_ids" in session and session["internal_repo_ids"]:
-        repos = database.get_repositories_by_internal_ids(session["internal_repo_ids"])
-    else:
-        repo_ids = session.get('repos', [])
-        repos = [repository_db[rid] for rid in repo_ids if rid in repository_db]
+    repos = database.get_repositories_by_internal_ids(session["internal_repo_ids"])
     return render_template("main.html", repositories=repos)
 
 @app.route('/github-app-event', methods=['POST'])
@@ -56,6 +46,8 @@ def github_event_handler():
 
 @app.route('/install-success', methods=['GET'])
 def install_success():
+    #wait for the installation to complete. 2 seconds
+    time.sleep(2)
     installation_id = request.args.get("installation_id")
     if not installation_id:
         return "Installation ID missing in query parameters.", 400
@@ -72,7 +64,7 @@ def remove_repo():
     repo_id = request.form.get('repo_id')
     if not repo_id:
         flash("Repository ID not provided.", "danger")
-        return redirect(url_for('main_page'))
+        return redirect(url_for('main_page_route'))
     
     # Try removing from internal_repo_ids first, then fallback to manual repos.
     if "internal_repo_ids" in session and repo_id in session["internal_repo_ids"]:
