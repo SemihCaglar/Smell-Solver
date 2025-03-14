@@ -27,9 +27,9 @@ def main_page():
                 flash("Repository already added.", "info")
         else:
             flash("Invalid repository ID.", "danger")
-        return redirect(url_for('main_page_route'))
+        return redirect(url_for('main_page'))
 
-    repos = database.get_repositories_by_internal_ids(session["internal_repo_ids"])
+    repos = database.get_repositories_by_internal_ids(session.get("internal_repo_ids", []))
     return render_template("main.html", repositories=repos)
 
 @app.route('/github-app-event', methods=['POST'])
@@ -64,7 +64,7 @@ def remove_repo():
     repo_id = request.form.get('repo_id')
     if not repo_id:
         flash("Repository ID not provided.", "danger")
-        return redirect(url_for('main_page_route'))
+        return redirect(url_for('main_page'))
     
     # Try removing from internal_repo_ids first, then fallback to manual repos.
     if "internal_repo_ids" in session and repo_id in session["internal_repo_ids"]:
@@ -78,6 +78,14 @@ def remove_repo():
     
     return redirect(url_for('main_page'))
 
+@app.route('/r/<repo_id>', methods=['GET'])
+def repo_details(repo_id):
+    """Display details for a specific repository by its internal ID."""
+    repo = database.get_repository_by_internal_id(repo_id)
+    if not repo:
+        flash("Repository not found.", "danger")
+        return redirect(url_for('main_page'))
+    return render_template("repo_details.html", repo=repo)
 
 if __name__ == '__main__':
     public_url = start_ngrok()  # Start the ngrok tunnel

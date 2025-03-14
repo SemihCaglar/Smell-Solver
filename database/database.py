@@ -115,3 +115,24 @@ def get_repository_by_id(repo_id):
     if row:
         return {"internal_id": row[0], "github_repo_id": row[1], "repo_full_name": row[2], "installation_id": row[3]}
     return None
+
+def get_repository_by_internal_id(internal_id):
+    """Retrieve a repository record by its internal_id."""
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("""
+        SELECT internal_id, github_repo_id, repo_full_name, installation_id 
+        FROM repositories 
+        WHERE internal_id = ?
+    """, (internal_id,))
+    row = c.fetchone()
+    conn.close()
+    if row:
+        return {
+            "internal_id": row[0],
+            "github_repo_id": row[1],
+            "repo_full_name": row[2],
+            "installation_id": row[3]
+        }
+    return None
+
