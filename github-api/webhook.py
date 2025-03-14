@@ -6,6 +6,7 @@ import config
 from flask import Flask, request, jsonify, abort
 from github import Github
 from pyngrok import ngrok
+from database import database  # Updated import path
 
 # Configuration
 REPO_NAME = config.REPO_NAME  # Replace with your GitHub repo
