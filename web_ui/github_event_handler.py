@@ -29,7 +29,7 @@ def process_installation_event(payload):
         internal_ids.append(internal_id)
         print(f"✅ App installed on {repo_full_name} (GitHub Repo ID: {github_repo_id}, Internal ID: {internal_id}, Installation ID: {installation_id})")
 
-    session["installation_id"] = installation_id
+    session["installation_id"] = installation_id # TODO check if this is correct
     session["internal_repo_ids"] = internal_ids
 
     print("Session data after setting:", session)
