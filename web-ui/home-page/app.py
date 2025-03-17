@@ -89,6 +89,4 @@ def repo_details(repo_id):
 
 if __name__ == '__main__':
     public_url = start_ngrok()  # Start the ngrok tunnel
-    print(f"🌍 GitHub Event URL: {public_url}/github-app-event")
-    print(f"🔄 Post-Installation Redirect URL: {public_url}/install-success")
     app.run(port=config.NGROK_PORT, debug=True, use_reloader=False)
