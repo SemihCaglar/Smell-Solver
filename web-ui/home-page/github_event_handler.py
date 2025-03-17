@@ -14,7 +14,7 @@ def process_installation_event(payload):
     if action == "deleted":
         database.remove_installation(installation_id)
         session.pop("installation_id", None)
-        session.pop("internal_repo_ids", None)
+        session.pop("internal_repo_ids", None) #TODO check if this is correct
         print(f"❌ Installation {installation_id} deleted.")
         return jsonify({"message": "Installation deleted"}), 200
 
