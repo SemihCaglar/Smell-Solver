@@ -2,7 +2,7 @@ from flask import Blueprint, render_template, request, session, redirect, url_fo
 import database.database as database
 import time
 
-main_bp = Blueprint('main', __name__)
+main_bp = Blueprint('main', __name__) #TODO add template folder parameter
 
 @main_bp.route('/', methods=['GET', 'POST'])
 def main_page():
@@ -47,14 +47,3 @@ def remove_repo():
     else:
         flash("Repository not found in session.", "info")
     return redirect(url_for('main.main_page'))
-
-def repo_page(repo_id): # TODO 
-    repo = database.get_repository_by_id(repo_id)
-    return render_template("repository/repo_page.html", repo=repo)
-
-@main_bp.route('/r/<repo_id>', methods=['GET'])
-def repo_details(repo_id):
-    repo = database.get_repository_by_id(repo_id)
-    if not repo:
-        return "Repository not found.", 404
-    return repo_page(repo_id)

@@ -39,7 +39,7 @@
         {% if repositories %}
           {% for repo in repositories %}
             <li class="list-group-item d-flex justify-content-between align-items-center" id="repo-{{ repo.internal_id }}">
-              <a href="{{ url_for('main.repo_details', repo_id=repo.internal_id) }}">
+              <a href="{{ url_for('repo_routes.repo_dashboard', repo_id=repo.internal_id) }}">
                 <strong>{{ repo.repo_full_name }}</strong>
               </a>
               <div>
