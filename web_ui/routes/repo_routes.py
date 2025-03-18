@@ -3,7 +3,7 @@ import database.database as database
 
 repo_bp = Blueprint('repo_routes', __name__, template_folder='../templates/repository')
 
-@repo_bp.route('/<repo_id>', methods=['GET'])
+@repo_bp.route('/r/<repo_id>', methods=['GET'])
 def repo_dashboard(repo_id):
     """
     Repository Dashboard: Shows repository statistics and a PR list via tabs.
@@ -28,7 +28,7 @@ def repo_dashboard(repo_id):
     
     return render_template("repo_page.html", repo=repo, stats=stats, pr_list=pr_list)
 
-@repo_bp.route('/<repo_id>/pr/<int:pr_number>', methods=['GET'])
+@repo_bp.route('/r/<repo_id>/pr/<int:pr_number>', methods=['GET'])
 def pr_analysis(repo_id, pr_number):
     """
     PR Analysis Page: Detailed breakdown for a specific pull request.
@@ -43,7 +43,7 @@ def pr_analysis(repo_id, pr_number):
     }
     return render_template("pr_analysis.html", repo_id=repo_id, pr_details=pr_details)
 
-@repo_bp.route('/<repo_id>/settings', methods=['GET', 'POST'])
+@repo_bp.route('/r/<repo_id>/settings', methods=['GET', 'POST'])
 def repo_settings(repo_id):
     """
     Repository Settings Page: Allow configuring detection preferences.
