@@ -22,8 +22,8 @@ def repo_dashboard(repo_id):
         "most_common_smell": "Vague"
     }
     pr_list = [
-        {"pr_number": 101, "title": "Fix bug in login", "smell_count": 3},
-        {"pr_number": 102, "title": "Improve UI", "smell_count": 2}
+        {"pr_number": 101, "title": "Fix bug in login", "smell_count": 3, "date": "2023-09-01"},
+        {"pr_number": 102, "title": "Improve UI", "smell_count": 2, "date": "2023-09-02"}
     ]
     
     return render_template("repo_page.html", repo=repo, stats=stats, pr_list=pr_list)
