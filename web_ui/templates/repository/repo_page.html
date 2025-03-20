@@ -12,11 +12,23 @@
       height: 300px;
       margin-bottom: 20px;
     }
+    /* Optional: style for settings button in header */
+    .header-actions {
+      float: right;
+      margin-top: 10px;
+    }
   </style>
 </head>
 <body>
 <div class="container mt-4">
-  <h1>Repository Dashboard</h1>
+  <div class="d-flex justify-content-between align-items-center">
+    <h1>Repository Dashboard</h1>
+    <!-- Prominent Settings Button -->
+    <a href="{{ url_for('repo_routes.repo_settings', repo_id=repo.internal_id) }}" class="btn btn-secondary header-actions">
+      Repository Settings
+    </a>
+  </div>
+  
   <h3>{{ repo.repo_full_name }}</h3>
   
   <!-- Navigation Tabs -->
@@ -115,11 +127,6 @@
     </div>
   </div>
   
-  <!-- Link to Repository Settings -->
-  <div class="mt-4">
-    <a href="{{ url_for('repo_routes.repo_settings', repo_id=repo.internal_id) }}" class="btn btn-secondary">Repository Settings</a>
-  </div>
-  
   <!-- Back to Main Dashboard -->
   <div class="mt-2">
     <a href="{{ url_for('main.main_page') }}" class="btn btn-outline-primary">Back to Dashboard</a>
@@ -135,14 +142,17 @@
 <script src="https://cdn.datatables.net/1.10.25/js/dataTables.bootstrap4.min.js"></script>
 
 <script>
-// Initialize DataTables for the PR list table with only the Title column searchable (column index 2)
+// Initialize DataTables for the PR list table with Title and Actions columns not sortable
 $(document).ready(function() {
     $('#prTable').DataTable({
         "order": [[ 0, "desc" ]], // Default order on the Date column (index 0)
         "columnDefs": [
             { "orderable": false, "targets": [2, 4] },   // Disable sorting on Title and Actions columns
             { "searchable": false, "targets": [0,1,3,4] }  // Only Title (index 2) remains searchable
-        ]
+        ],
+        "language": {
+            "search": "Search in Title:"
+        }
     });
 });
 

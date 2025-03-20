@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, flash, redirect, url_for
+from flask import Blueprint, json, render_template, request, flash, redirect, url_for
 import database.database as database
 
 repo_bp = Blueprint('repo_routes', __name__, template_folder='../templates/repository')
@@ -22,8 +22,8 @@ def repo_dashboard(repo_id):
         "most_common_smell": "Vague"
     }
     pr_list = [
-        {"pr_number": 101, "title": "Fix bug in login", "smell_count": 3, "date": "2023-09-01"},
-        {"pr_number": 102, "title": "Improve UI", "smell_count": 2, "date": "2023-09-02"}
+        {"pr_number": 101, "title": "Fix bug in login", "smell_count": 3, "date": "2021-09-01"},
+        {"pr_number": 102, "title": "Improve UI", "smell_count": 2, "date": "2021-09-02"},
     ]
     
     return render_template("repo_page.html", repo=repo, stats=stats, pr_list=pr_list)
@@ -47,18 +47,47 @@ def pr_analysis(repo_id, pr_number):
 def repo_settings(repo_id):
     """
     Repository Settings Page: Allow configuring detection preferences.
+    Processes form submission to update settings in the database.
     """
-    # For GET: load current settings (dummy or from a function)
     # For POST: update settings in the database.
     if request.method == 'POST':
-        # Process submitted settings form data
-        # e.g., request.form.get('create_issues'), request.form.getlist('enabled_smells')
+        # Retrieve form data
+        create_issues = request.form.get('create_issues') == 'on'
+        enabled_smells = request.form.getlist('enabled_smells')
+        
+        # Update the settings in the database
+        database.update_repo_settings(repo_id, create_issues, enabled_smells)
+        
         flash("Settings updated.", "success")
         return redirect(url_for('repo_routes.repo_settings', repo_id=repo_id))
     
-    # Dummy settings data; replace with real data retrieval.
-    settings = {
+    # For GET: load current settings.
+    # Retrieve settings from the database.
+    # If not found, use default dummy settings.
+    current_settings = {
         "create_issues": True,
         "enabled_smells": ["Vague", "Misleading", "Obvious"]
     }
-    return render_template("repo_settings.html", repo_id=repo_id, settings=settings)
+    # Try to fetch settings from the repo_settings table.
+    settings_row = None
+    import sqlite3
+    try:
+        with sqlite3.connect(database.DB_PATH) as conn:
+            c = conn.cursor()
+            c.execute("""
+                SELECT create_issues, enabled_smells
+                FROM repo_settings
+                WHERE repo_internal_id = ?
+            """, (repo_id,))
+            settings_row = c.fetchone()
+    except Exception as e:
+        print("Error fetching repo settings:", e)
+    
+    if settings_row:
+        current_settings['create_issues'] = bool(settings_row[0])
+        try:
+            current_settings['enabled_smells'] = json.loads(settings_row[1])
+        except Exception:
+            current_settings['enabled_smells'] = []
+    
+    return render_template("repo_settings.html", repo_id=repo_id, settings=current_settings)
