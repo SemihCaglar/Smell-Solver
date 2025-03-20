@@ -172,7 +172,7 @@ def repo_settings(repo_id):
     # If not found, use default dummy settings.
     current_settings = {
         "create_issues": True,
-        "enabled_smells": ["Vague", "Misleading", "Obvious"]
+        "enabled_smells": ["Vague", "Misleading", "Obvious", "Beautification", "Commented-Out Code", "Attribution", "Too Much Information", "Non-Local", "No Comment", "Task"]
     }
     # Try to fetch settings from the repo_settings table.
     settings_row = None
