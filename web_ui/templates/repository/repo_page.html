@@ -4,15 +4,15 @@
   <meta charset="utf-8">
   <title>Repository Dashboard - {{ repo.repo_full_name }}</title>
   <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-  <!-- DataTables CSS from CDN -->
+  <!-- DataTables CSS -->
   <link rel="stylesheet" href="https://cdn.datatables.net/1.10.25/css/dataTables.bootstrap4.min.css">
-  <!-- Include Chart.js, date adapter, and zoom plugin -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@1.2.1/dist/chartjs-plugin-zoom.min.js"></script>
+  <!-- Include Highcharts -->
+  <script src="https://code.highcharts.com/highcharts.js"></script>
+  <!-- Optional modules -->
+  <script src="https://code.highcharts.com/modules/exporting.js"></script>
+  <script src="https://code.highcharts.com/modules/accessibility.js"></script>
   <style>
     .chart-container {
-      position: relative;
       height: 300px;
       margin-bottom: 20px;
     }
@@ -82,16 +82,14 @@
         <div class="row mt-4">
           <!-- Line Chart Column (Dynamic, Time-Based) -->
           <div class="col-md-6">
-            <div class="chart-container">
-              <canvas id="lineChart"></canvas>
-            </div>
-            <p class="text-center text-muted">Use mouse wheel or drag on the chart to zoom/pan the time range.</p>
+            <div id="lineChartContainer" class="chart-container"></div>
+            <p class="text-center text-muted">
+              
+            </p>
           </div>
           <!-- Pie Chart Column (Static Dummy Data) -->
           <div class="col-md-6">
-            <div class="chart-container">
-              <canvas id="pieChart"></canvas>
-            </div>
+            <div id="pieChartContainer" class="chart-container"></div>
           </div>
         </div>
       </div>
@@ -140,32 +138,31 @@
   </div>
 </div>
 
-<!-- Include libraries: jQuery, DataTables, Bootstrap, Chart.js, Date Adapter, and Zoom Plugin -->
+<!-- Include libraries: jQuery, DataTables, Bootstrap, and Highcharts -->
 <link rel="stylesheet" href="https://cdn.datatables.net/1.10.25/css/dataTables.bootstrap4.min.css">
 <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
 <script src="https://cdn.datatables.net/1.10.25/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.10.25/js/dataTables.bootstrap4.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/js/bootstrap.bundle.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@1.2.1/dist/chartjs-plugin-zoom.min.js"></script>
+<script src="https://code.highcharts.com/highcharts.js"></script>
 
 <script>
-// Initialize DataTables for the PR list table
+// Initialize DataTables for the PR list table.
 $(document).ready(function() {
-    $('#prTable').DataTable({
-        "order": [[ 0, "desc" ]],
-        "columnDefs": [
-            { "orderable": false, "targets": [2, 4] },
-            { "searchable": false, "targets": [0,1,3,4] }
-        ],
-        "language": {
-            "search": "Search in Title:"
-        }
-    });
+  $('#prTable').DataTable({
+    "order": [[ 0, "desc" ]],
+    "columnDefs": [
+      { "orderable": false, "targets": [2, 4] },
+      { "searchable": false, "targets": [0,1,3,4] }
+    ],
+    "language": {
+      "search": "Search in Title:"
+    }
+  });
 });
 
-// Dummy smell records with dates for demonstration purposes.
+// Dummy smell records with dates for demonstration.
+// (In a real application, replace this with your aggregated data.)
 var smellRecords = [
   { date: "2025-03-20", smell_type: "Vague" },
   { date: "2025-03-19", smell_type: "Obvious" },
@@ -177,18 +174,17 @@ var smellRecords = [
   { date: "2025-03-15", smell_type: "Obvious" },
   { date: "2025-03-20", smell_type: "Vague" },
   { date: "2025-03-19", smell_type: "Misleading" }
-  // Add more records as needed...
+  // ... assume there are 100 records spanning a wide date range.
 ];
 
-// Allowed smell types (matches allowed_smells list)
+// Allowed smell types.
 var allowedSmells = ["Vague", "Misleading", "Obvious", "Beautification", "Commented-Out Code", "Attribution", "Too Much Information", "Non-Local", "No Comment", "Task"];
 
-// Function to group and aggregate smell records by date and smell type.
-// We keep date keys as ISO strings for Chart.js.
+// Function to aggregate smell records by date and smell type.
 function aggregateSmellData(records) {
   var aggregation = {};
   records.forEach(function(record) {
-    var dateStr = record.date;
+    var dateStr = record.date;  // ISO string
     if (!aggregation[dateStr]) {
       aggregation[dateStr] = {};
       allowedSmells.forEach(function(type) {
@@ -202,132 +198,87 @@ function aggregateSmellData(records) {
   return aggregation;
 }
 
-// Function to filter smellRecords based on selected smell types and aggregate by date.
-function filterAndAggregateData() {
-  // Get selected smell types from the checkboxes (if none, default to all)
-  var selectedTypes = [];
-  $('.smell-filter:checked').each(function() {
-    selectedTypes.push($(this).val());
-  });
-  if(selectedTypes.length === 0){
-    selectedTypes = allowedSmells.slice();
-  }
-  
-  var filtered = smellRecords.filter(function(record) {
-    return selectedTypes.indexOf(record.smell_type) !== -1;
-  });
-  
-  var agg = aggregateSmellData(filtered);
-  // Instead of converting to Date objects, use ISO strings (which Chart.js can parse).
+// Prepare series data for Highcharts.
+function prepareSeriesData() {
+  var agg = aggregateSmellData(smellRecords);
   var dates = Object.keys(agg).sort();
-  var datasets = [];
-  // For each selected smell type, create a dataset for the line chart.
-  selectedTypes.forEach(function(type) {
-    var data = [];
-    dates.forEach(function(dateStr) {
-      data.push(agg[dateStr] ? agg[dateStr][type] || 0 : 0);
-    });
-    // For demonstration, assign a random color.
-    var r = Math.floor(Math.random()*256);
-    var g = Math.floor(Math.random()*256);
-    var b = Math.floor(Math.random()*256);
-    var backgroundColor = 'rgba(' + r + ',' + g + ',' + b + ',0.6)';
-    var borderColor = 'rgba(' + r + ',' + g + ',' + b + ',1)';
-    datasets.push({
-      label: type,
-      data: data,
-      backgroundColor: backgroundColor,
-      borderColor: borderColor,
-      borderWidth: 2,
-      fill: false
-    });
-
-  });
+  var series = [];
   
-  console.log("Aggregated Data:", agg);
-  console.log("Dates:", dates);
-  console.log("Datasets:", datasets);
-
-  return {
-    labels: dates,
-    datasets: datasets
-  };
-}
-
-// Function to update the line chart with filtered data.
-function updateLineChart() {
-  var newData = filterAndAggregateData();
-  lineChart.data.labels = newData.labels;
-  lineChart.data.datasets = newData.datasets;
-  lineChart.update();
-}
-
-// Create a global variable for the dynamic line chart with a time-based x-axis.
-var lineCtx = document.getElementById('lineChart').getContext('2d');
-var lineChart = new Chart(lineCtx, {
-    type: 'line',
-    data: filterAndAggregateData(), // Your aggregation function returns non-empty data
-    options: {
-      scales: {
-        x: {
-          type: 'time',
-          time: {
-            unit: 'day',
-            tooltipFormat: 'yyyy-MM-dd'
-          }
-        },
-        y: {
-          beginAtZero: true
-        }
-      },
-      plugins: {
-        zoom: {
-          pan: {
-            enabled: true,      // Enable panning
-            mode: 'x',          // Allow panning only along the x-axis
-            threshold: 10       // Optional: minimum distance in pixels to start panning
-          },
-          zoom: {
-            wheel: {
-              enabled: true    // Enable zooming with the mouse wheel
-            },
-            pinch: {
-              enabled: true    // Enable pinch zooming on touch devices
-            },
-            mode: 'x'           // Allow zooming only along the x-axis
-          },
-          // Optional callback to see when zooming is complete
-          onZoomComplete: function({chart}) {
-            console.log("Zoom complete. New time range:", chart.scales.x.min, chart.scales.x.max);
-          }
-        }
+  // For each allowed smell type, create a series (only include if data exists).
+  allowedSmells.forEach(function(type) {
+    var data = [];
+    var hasData = false;
+    dates.forEach(function(dateStr) {
+      var count = agg[dateStr][type] || 0;
+      if (count > 0) {
+        hasData = true;
       }
+      // Highcharts accepts timestamps for date values.
+      data.push([Date.parse(dateStr), count]);
+    });
+    if (hasData) {
+      // Random color for demonstration.
+      var r = Math.floor(Math.random() * 256);
+      var g = Math.floor(Math.random() * 256);
+      var b = Math.floor(Math.random() * 256);
+      series.push({
+        name: type,
+        data: data,
+        color: 'rgb(' + r + ',' + g + ',' + b + ')'
+      });
     }
+  });
+  return series;
+}
+
+// Render the Highcharts line chart.
+Highcharts.chart('lineChartContainer', {
+  chart: {
+    zoomType: 'x',
+    panning: {
+      enabled: true,
+      type: 'x'
+    },
+    panKey: null  // No modifier key required.
+  },
+  title: {
+    text: 'Smells Over Time'
+  },
+  xAxis: {
+    type: 'datetime',
+    title: { text: 'Date' }
+  },
+  yAxis: {
+    title: { text: 'Number of Smells' },
+    min: 0
+  },
+  legend: {
+    enabled: true
+  },
+  series: prepareSeriesData(),
+  credits: { enabled: false }
 });
 
-// Initialize the pie chart (using dummy static data)
-var pieCtx = document.getElementById('pieChart').getContext('2d');
-var pieChart = new Chart(pieCtx, {
-  type: 'pie',
-  data: {
-    labels: allowedSmells,
-    datasets: [{
-      label: "Smell Distribution",
-      data: allowedSmells.map(() => Math.floor(Math.random() * 10) + 1),
-      backgroundColor: allowedSmells.map(function() {
-        var r = Math.floor(Math.random()*256);
-        var g = Math.floor(Math.random()*256);
-        var b = Math.floor(Math.random()*256);
-        return 'rgba(' + r + ',' + g + ',' + b + ',0.6)';
-      })
-    }]
-  }
-});
-
-// Bind filter button click to update the line chart.
-$('#applyFilters').on('click', function() {
-  updateLineChart();
+// Render the Highcharts pie chart with dummy data.
+Highcharts.chart('pieChartContainer', {
+  chart: {
+    type: 'pie'
+  },
+  title: {
+    text: 'Smell Distribution'
+  },
+  series: [{
+    name: 'Count',
+    data: allowedSmells.map(function(type) {
+      return { name: type, y: Math.floor(Math.random() * 10) + 1 };
+    })
+  }],
+  credits: { enabled: false }
 });
 </script>
+
+<!-- Create containers for Highcharts -->
+<div id="lineChartContainer" class="chart-container"></div>
+<div id="pieChartContainer" class="chart-container"></div>
 </body>
 </html>
