@@ -13,7 +13,8 @@
   <script src="https://code.highcharts.com/modules/accessibility.js"></script>
   <style>
     .chart-container {
-      height: 300px;
+      height: 500px; /* Increase height */
+      width: 100%;   /* Adjust width as needed */
       margin-bottom: 20px;
     }
     .header-actions {
@@ -161,21 +162,8 @@ $(document).ready(function() {
   });
 });
 
-// Dummy smell records with dates for demonstration.
-// (In a real application, replace this with your aggregated data.)
-var smellRecords = [
-  { date: "2025-03-20", smell_type: "Vague" },
-  { date: "2025-03-19", smell_type: "Obvious" },
-  { date: "2023-03-18", smell_type: "Misleading" },
-  { date: "2025-03-20", smell_type: "Vague" },
-  { date: "2025-03-20", smell_type: "Task" },
-  { date: "2025-03-18", smell_type: "Obvious" },
-  { date: "2025-03-17", smell_type: "Beautification" },
-  { date: "2025-03-15", smell_type: "Obvious" },
-  { date: "2025-03-20", smell_type: "Vague" },
-  { date: "2025-03-19", smell_type: "Misleading" }
-  // ... assume there are 100 records spanning a wide date range.
-];
+// Use the passed data for smell records
+var smellRecords = {{ smell_reports_json|safe }};
 
 // Allowed smell types.
 var allowedSmells = ["Vague", "Misleading", "Obvious", "Beautification", "Commented-Out Code", "Attribution", "Too Much Information", "Non-Local", "No Comment", "Task"];
@@ -266,6 +254,19 @@ Highcharts.chart('pieChartContainer', {
   },
   title: {
     text: 'Smell Distribution'
+  },
+  tooltip: {
+    pointFormat: '{point.name}: <b>{point.y}</b>'  // Show the count (y value) in the tooltip
+  },
+  plotOptions: {
+    pie: {
+      allowPointSelect: true,
+      cursor: 'pointer',
+      dataLabels: {
+        enabled: true,
+        format: '{point.name}: {point.percentage:.1f}%'  // Show percentages on the slices
+      }
+    }
   },
   series: [{
     name: 'Count',

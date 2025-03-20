@@ -1,5 +1,7 @@
 from flask import Blueprint, json, render_template, request, flash, redirect, url_for
 import database.database as database
+import random
+import datetime
 
 repo_bp = Blueprint('repo_routes', __name__, template_folder='../templates/repository')
 
@@ -17,16 +19,120 @@ def repo_dashboard(repo_id):
     
     # Dummy data for demonstration; replace with actual queries
     stats = {
-        "total_prs": 10,
-        "total_smells": 25,
+        "total_prs": 30,
+        "total_smells": 100,
         "most_common_smell": "Vague"
     }
-    pr_list = [
-        {"pr_number": 101, "title": "Fix bug in login", "smell_count": 3, "date": "2021-09-01"},
-        {"pr_number": 102, "title": "Improve UI", "smell_count": 2, "date": "2021-09-02"},
-    ]
+    # New dummy PR list with 30 random entries.
+    base_date = datetime.date(2025, 1, 1)
+    pr_list = []
+    for i in range(30):
+        pr_list.append({
+            "pr_number": 100 + i,
+            "title": f"Dummy PR {i+1}",
+            "smell_count": random.randint(1, 10),
+            "date": (base_date + datetime.timedelta(days=i)).strftime("%Y-%m-%d")
+        })
     
-    return render_template("repo_page.html", repo=repo, stats=stats, pr_list=pr_list)
+    smell_reports = [
+        { "date": "2024-05-12", "smell_type": "Vague" },
+        { "date": "2023-11-20", "smell_type": "No Comment" },
+        { "date": "2023-04-24", "smell_type": "Vague" },
+        { "date": "2024-03-15", "smell_type": "Misleading" },
+        { "date": "2023-11-21", "smell_type": "Task" },
+        { "date": "2024-05-27", "smell_type": "Task" },
+        { "date": "2024-09-03", "smell_type": "Misleading" },
+        { "date": "2024-03-05", "smell_type": "Task" },
+        { "date": "2024-01-13", "smell_type": "Obvious" },
+        { "date": "2024-06-26", "smell_type": "Beautification" },
+        { "date": "2023-02-01", "smell_type": "Beautification" },
+        { "date": "2023-08-01", "smell_type": "Attribution" },
+        { "date": "2023-12-28", "smell_type": "Beautification" },
+        { "date": "2024-11-03", "smell_type": "Too Much Information" },
+        { "date": "2023-09-27", "smell_type": "Beautification" },
+        { "date": "2025-02-02", "smell_type": "Obvious" },
+        { "date": "2023-01-06", "smell_type": "No Comment" },
+        { "date": "2023-10-06", "smell_type": "Misleading" },
+        { "date": "2023-08-02", "smell_type": "Beautification" },
+        { "date": "2023-01-06", "smell_type": "Beautification" },
+        { "date": "2023-06-11", "smell_type": "Misleading" },
+        { "date": "2024-04-07", "smell_type": "No Comment" },
+        { "date": "2025-03-16", "smell_type": "Too Much Information" },
+        { "date": "2023-12-22", "smell_type": "Vague" },
+        { "date": "2024-10-08", "smell_type": "Vague" },
+        { "date": "2024-12-14", "smell_type": "Task" },
+        { "date": "2023-09-26", "smell_type": "Commented-Out Code" },
+        { "date": "2024-01-21", "smell_type": "Obvious" },
+        { "date": "2024-07-28", "smell_type": "Misleading" },
+        { "date": "2023-07-13", "smell_type": "Commented-Out Code" },
+        { "date": "2025-01-14", "smell_type": "Obvious" },
+        { "date": "2024-11-28", "smell_type": "Task" },
+        { "date": "2024-08-26", "smell_type": "Beautification" },
+        { "date": "2023-03-09", "smell_type": "Beautification" },
+        { "date": "2024-07-24", "smell_type": "Non-Local" },
+        { "date": "2024-05-04", "smell_type": "Commented-Out Code" },
+        { "date": "2024-09-08", "smell_type": "No Comment" },
+        { "date": "2024-06-22", "smell_type": "Commented-Out Code" },
+        { "date": "2025-01-11", "smell_type": "Beautification" },
+        { "date": "2024-06-09", "smell_type": "Non-Local" },
+        { "date": "2024-10-15", "smell_type": "Obvious" },
+        { "date": "2023-11-21", "smell_type": "Task" },
+        { "date": "2023-02-11", "smell_type": "Non-Local" },
+        { "date": "2024-02-26", "smell_type": "Vague" },
+        { "date": "2024-03-14", "smell_type": "Obvious" },
+        { "date": "2024-04-14", "smell_type": "Too Much Information" },
+        { "date": "2024-08-01", "smell_type": "Attribution" },
+        { "date": "2024-01-02", "smell_type": "Non-Local" },
+        { "date": "2023-08-03", "smell_type": "Task" },
+        { "date": "2024-12-10", "smell_type": "Task" },
+        { "date": "2024-09-04", "smell_type": "Commented-Out Code" },
+        { "date": "2024-04-06", "smell_type": "Task" },
+        { "date": "2025-02-08", "smell_type": "Misleading" },
+        { "date": "2025-03-14", "smell_type": "Beautification" },
+        { "date": "2023-12-27", "smell_type": "Task" },
+        { "date": "2024-08-26", "smell_type": "Beautification" },
+        { "date": "2023-09-24", "smell_type": "Commented-Out Code" },
+        { "date": "2024-06-08", "smell_type": "Vague" },
+        { "date": "2023-03-19", "smell_type": "No Comment" },
+        { "date": "2024-05-12", "smell_type": "Too Much Information" },
+        { "date": "2024-03-14", "smell_type": "Non-Local" },
+        { "date": "2023-11-30", "smell_type": "Attribution" },
+        { "date": "2024-05-16", "smell_type": "Too Much Information" },
+        { "date": "2023-07-30", "smell_type": "Beautification" },
+        { "date": "2023-10-31", "smell_type": "Too Much Information" },
+        { "date": "2025-01-31", "smell_type": "Misleading" },
+        { "date": "2024-06-19", "smell_type": "Attribution" },
+        { "date": "2024-04-30", "smell_type": "Too Much Information" },
+        { "date": "2023-01-24", "smell_type": "Non-Local" },
+        { "date": "2024-12-26", "smell_type": "Commented-Out Code" },
+        { "date": "2025-01-09", "smell_type": "Too Much Information" },
+        { "date": "2023-12-13", "smell_type": "Task" },
+        { "date": "2023-05-14", "smell_type": "Obvious" },
+        { "date": "2025-03-18", "smell_type": "Vague" },
+        { "date": "2024-12-23", "smell_type": "Non-Local" },
+        { "date": "2024-08-08", "smell_type": "Misleading" },
+        { "date": "2025-02-18", "smell_type": "Non-Local" },
+        { "date": "2023-11-06", "smell_type": "Obvious" },
+        { "date": "2023-06-17", "smell_type": "Non-Local" },
+        { "date": "2023-08-16", "smell_type": "Beautification" },
+        { "date": "2023-06-20", "smell_type": "Attribution" },
+        { "date": "2023-03-11", "smell_type": "Attribution" },
+        { "date": "2025-01-20", "smell_type": "Commented-Out Code" },
+        { "date": "2023-03-18", "smell_type": "Beautification" },
+        { "date": "2023-07-24", "smell_type": "Too Much Information" },
+        { "date": "2024-10-20", "smell_type": "Obvious" },
+        { "date": "2024-02-25", "smell_type": "Vague" },
+        { "date": "2023-09-27", "smell_type": "Attribution" },
+        { "date": "2024-12-03", "smell_type": "Non-Local" },
+        { "date": "2024-09-26", "smell_type": "Attribution" },
+        { "date": "2023-06-20", "smell_type": "Misleading" },
+        { "date": "2025-01-14", "smell_type": "Non-Local" },
+        { "date": "2024-09-22", "smell_type": "Commented-Out Code" },
+        { "date": "2024-11-30", "smell_type": "Too Much Information" }
+    ]
+    smell_reports_json = json.dumps(smell_reports)
+    
+    return render_template("repo_page.html", repo=repo, stats=stats, pr_list=pr_list, smell_reports_json=smell_reports_json)
 
 @repo_bp.route('/r/<repo_id>/pr/<int:pr_number>', methods=['GET'])
 def pr_analysis(repo_id, pr_number):
