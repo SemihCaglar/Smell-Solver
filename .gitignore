@@ -181,3 +181,4 @@ config.py
 *.json
 *.db
 .idea/
+*.pem
