@@ -180,3 +180,4 @@ config.py
 *.txt
 *.json
 *.db
+.idea/

@@ -139,7 +139,7 @@ def pr_analysis(repo_id, pr_number):
     """
     PR Analysis Page: Detailed breakdown for a specific pull request.
     """
-    # Dummy data; replace with real PR analysis query
+    # Dummy data; replace with real PR analysis query TODO
     pr_details = {
         "pr_number": pr_number,
         "title": "Example PR Title",

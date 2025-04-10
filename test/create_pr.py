@@ -8,8 +8,60 @@ REPO = "new-repo"  # Repository name
 HEAD_BRANCH = "feature-branch"  # The branch you want to merge (must exist)
 BASE_BRANCH = "master"  # The branch you are merging into
 NEW_BRANCH = "feature-branch"  # New branch to be created
-FILE_PATH = "pr_test.txt"  # File to be added
-FILE_CONTENT = "This is a test file for the PR.\nCreated via API."
+FILE_PATH = "pr_demo.java"  # File to be added
+FILE_CONTENT = """
+
+public class DemoPR {
+
+    public static void main(String[] args) {
+        // this makes a new scanner, which can read from
+        // STDIN, located at System.in. The scanner lets us look
+        // for tokens, aka stuff the user has entered.
+        Scanner sc = new Scanner(System.in);
+
+        int a = 5; // Setting variable a to 5
+
+        taskTmpPath = ttp; // task tmp
+        
+        // int temp = 0;
+        // System.out.println("Temp: " + temp);
+
+        // TODO: Refactor main method for clarity and error handling.
+        System.out.println("Demo complete.");
+    }
+    
+    /**
+     * Substract two numbers.
+     */
+    public static int substract(int x, int y) {
+        // add x and y
+        return x - y;
+    }
+    
+    public static void beautify() {
+        /* ***********************
+           *    Section Divider    *
+           *********************** */
+        System.out.println("Beautification method executed.");
+    }
+    
+    public static void attributedMethod() {
+        // Added by John Doe
+        System.out.println("Attributed method executed.");
+    }
+    
+    public void setFitnessePort(int fitnessePort) {
+        /* I dedicate all this code, all my work, to my wife,
+        Darlene, who will have to support me and our children
+        and the dog once it gets released into the public.*/
+
+        // Port on which fitnesse would run. Defaults to 8082
+        this.fitnessePort = fitnessePort;
+    }
+}
+
+
+"""
 
 # GitHub API URLs
 BASE_URL = f"https://api.github.com/repos/{OWNER}/{REPO}"
@@ -109,7 +161,7 @@ print(f"✅ Branch '{NEW_BRANCH}' updated with new commit.")
 # Step 9: Create a pull request
 payload = {
     "title": "Test PR via API",
-    "body": "This PR adds pr_test.txt automatically via the GitHub API.",
+    "body": "This PR adds pr_test.java automatically via the GitHub API.",
     "head": NEW_BRANCH,  # The source branch
     "base": BASE_BRANCH   # The target branch
 }
