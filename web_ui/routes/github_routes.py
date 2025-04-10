@@ -6,7 +6,7 @@ github_bp = Blueprint('github', __name__)
 
 @github_bp.route('/github-app-event', methods=['POST'])
 def github_app_event():
-    event_type = request.headers.get('X-GitHub-Event', 'ping')
+    event_type = request.headers.get('X-GitHub-Event', 'pull_request')
     payload = request.json
     print("Received GitHub event:", event_type)
     # save payload to file as json

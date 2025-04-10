@@ -4,6 +4,10 @@ import requests
 from pyngrok import ngrok
 import config
 import base64
+import subprocess
+import tempfile
+import json
+import os
 
 def start_ngrok():
     """Start an ngrok tunnel with a reserved subdomain using pyngrok."""
@@ -59,7 +63,6 @@ def add_content_to_files(token, changed_files):
                 print(f"Failed to fetch content for {file['filename']}: {response.status_code}")
                 file["content"] = None
     
-
 def get_changed_files(payload):
 
     installation_id = str(payload["installation"]["id"])
@@ -86,4 +89,43 @@ def get_changed_files(payload):
         return files
     else:
         print("Error retrieving changed files:", response.json())
+        return None
+
+def extract_comments(file):
+    """
+    Extracts comments from the given file content using the `nirjas` command.
+
+    Args:
+        file (dict): A dictionary containing file metadata, including its content.
+
+    Returns:
+        str: The output of the `nirjas` command, or None if an error occurs.
+    """
+    file_content = file.get("content")
+    if not file_content:
+        print(f"No content found for file: {file['filename']}")
+        return None
+
+    try:
+        # Create a temporary file to store the content
+        with tempfile.NamedTemporaryFile(mode="w+", suffix=f"_{os.path.basename(file['filename'])}") as temp_file:
+            temp_file.write(file_content)
+            temp_file.flush()  # Ensure content is written to disk
+
+            # Run the `nirjas` command with the temporary file
+            command = f"nirjas {temp_file.name}"
+            result = subprocess.run(
+                command,
+                shell=True,
+                check=True,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE
+            )
+            print(f"Command Output for {file['filename']}: {result.stdout}")
+            parsed_output = json.loads(result.stdout)
+            return parsed_output 
+        
+    except subprocess.CalledProcessError as e:
+        print(f"Error executing command for {file['filename']}: {e.stderr}")
         return None

@@ -1,7 +1,8 @@
 from flask import session, jsonify
 import database.database as database
-from utils import get_changed_files
+import utils
 import json
+import subprocess
 
 def process_installation_event(payload):
     """
@@ -45,7 +46,16 @@ def process_installation_event(payload):
 def process_pr_event(payload):
     # TODO consider closed and open and others
     installation_id = str(payload["installation"]["id"])
-    changed_files = get_changed_files(payload) 
+    owner = str(payload["repository"]["owner"]["login"])
+    repo = str(payload["repository"]["name"])
+    pr_number = str(payload["number"])
+
+    changed_files = utils.get_changed_files(payload) 
+    # TODO: process changed files.
+    for file in changed_files:
+        comment = utils.extract_comments(file)
+        file["comment"] = comment
+
     with open("changed_files.json", "w") as f:
         json.dump(changed_files, f, indent=4)
 
@@ -65,7 +75,7 @@ def process_pr_event(payload):
     return jsonify({
         "message": "Pull request event processed",
         "owner": owner,
-        "repo_name": repo_name,
+        "repo_name": repo,
         "number": pr_number,
     }), 200
     
