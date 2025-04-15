@@ -3,6 +3,7 @@ import database.database as database
 import utils
 import json
 import subprocess
+from file_utils import add_context_to_comments, filter_comments_by_diff_intersection
 
 def process_installation_event(payload):
     """
@@ -52,9 +53,16 @@ def process_pr_event(payload):
     pr_number = str(payload["number"])
 
     changed_files = utils.get_changed_files(payload) 
-    # TODO: process changed files.
     for file in changed_files:
-        file["comments"] = utils.extract_comments(file)
+        comments = utils.extract_comments(file)
+        comments = add_context_to_comments(comments, file["content"], comments["metadata"]["lang"])
+        comments = filter_comments_by_diff_intersection(file["patch"], comments, file["content"])
+        file["comments"] = comments
+    
+    # TODO i probably should handle previous comments here 
+    # TODO remove method level comments
+        
+    
 
     with open("payloads/changed_files.json", "w") as f:
         json.dump(changed_files, f, indent=4)

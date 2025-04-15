@@ -153,7 +153,7 @@ def extract_comments(file):
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE
             )
-            print(f"Command Output for {file['filename']}: {result.stdout}")
+            # print(f"Command Output for {file['filename']}: {result.stdout}")
             parsed_output = json.loads(result.stdout)
             return parsed_output 
         

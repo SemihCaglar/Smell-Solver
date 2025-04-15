@@ -1,10 +1,12 @@
 import re
 import json
 
+CONTEXT_LINES = 15
+
 def normalize_comment_text(text):
     """
     Normalize comment text by removing newline characters.
-    (We do not strip leading/trailing spaces to preserve column alignment.)
+    (We do not strip leading/trailing spaces so as not to affect column alignment.)
     """
     return text.replace("\n", "")
 
@@ -36,9 +38,9 @@ def clean_multiline_block(block_lines):
     """
     cleaned = []
     for line in block_lines:
-        line = re.sub(r'^\s*/\*', '', line)       # Remove starting /* if present.
-        line = re.sub(r'\*/\s*$', '', line)         # Remove ending */ if present.
-        line = re.sub(r'^\s*\*\s?', '', line)        # Remove leading * (and an optional space) if present.
+        line = re.sub(r'^\s*/\*', '', line)       # Remove starting /*
+        line = re.sub(r'\*/\s*$', '', line)         # Remove ending */
+        line = re.sub(r'^\s*\*\s?', '', line)        # Remove leading * (and an optional space)
         cleaned.append(line)
     return cleaned
 
@@ -54,8 +56,7 @@ def find_comment_range_in_block(comment_text, block_lines, line_offset=0):
     The line_offset is added to computed line numbers so that if block_lines begins at line N,
     the positions are computed relative to the full file.
     
-    Returns:
-        A dictionary with keys:
+    Returns a dictionary with keys:
             "computed_start_line", "computed_start_column",
             "computed_end_line", "computed_end_column"
         or None if the normalized comment is not found.
@@ -84,31 +85,55 @@ def find_comment_range_in_block(comment_text, block_lines, line_offset=0):
 
 def get_marker_position(original_line, marker):
     """
-    Given an original line and a marker (e.g. "#" or "//" or "/*"),
+    Given an original line and a marker (such as "#" for Python, or "//" / "/*" for Java),
     search for the marker in the line and return the 1-indexed column number where it occurs.
     If not found, return 1.
     """
     pos = original_line.find(marker)
     return pos + 1 if pos != -1 else 1
 
-def process_comments(file_content, comments_data, lang="Python"):
+def extract_associated_code(file_content, comment_range, context_lines=10):
+    """
+    Extract an associated code block around a comment.
+    
+    Given the full file content (as a string) and a comment_range dictionary (which must include
+    'computed_start_line' and 'computed_end_line'), this function extracts a block of code that spans
+    from `context_lines` before the comment's first line to `context_lines` after its last line.
+    
+    Args:
+        file_content (str): Full file content (with newlines).
+        comment_range (dict): A dictionary containing 'computed_start_line' and 'computed_end_line'.
+        context_lines (int): Number of extra lines to include above and below.
+    
+    Returns:
+        str: The associated code block as a string.
+    """
+    lines = file_content.splitlines()
+    start_line = max(1, comment_range.get("computed_start_line", 1) - context_lines)
+    end_line = min(len(lines), comment_range.get("computed_end_line", len(lines)) + context_lines)
+    return "\n".join(lines[start_line - 1:end_line])
+
+def process_comments(file_content, comments_data, lang=None):
+    # TODO check this function. it looks like it is working fine for now.
     """
     Process the comments for a file.
     
     Args:
         file_content: Full file content as a string (including newlines).
         comments_data: A dict containing:
-            - "metadata": {...}
+            - "metadata": { ... }  (should include "lang")
             - "single_line_comment": list of { "line_number": int, "comment": str }
             - "cont_single_line_comment": list of { "start_line": int, "end_line": int, "comment": str }
             - "multi_line_comment": list of { "start_line": int, "end_line": int, "comment": str }
-        lang: "Python" or "Java". For Python, you may choose to skip multi-line comments.
+        lang: Optional. If provided, this overrides metadata. Otherwise, metadata["lang"] is used.
     
     For each comment, this function computes and attaches:
           "computed_start_line", "computed_start_column",
-          "computed_end_line", "computed_end_column"
-    For single-line comments, it overrides the computed_start_column by searching the original line
-    for the appropriate marker.
+          "computed_end_line", "computed_end_column",
+          "associated_code" (the context block around the comment).
+    
+    For single-line comments, the computed_start_column is overridden by searching the original line
+    for the actual comment marker.
     
     Returns:
         The updated comments_data dict with computed range fields for each comment.
@@ -116,14 +141,21 @@ def process_comments(file_content, comments_data, lang="Python"):
     file_lines = file_content.splitlines()
     updated_comments = {}
 
-    # Determine marker for single-line comments.
+    # Determine language from parameter or metadata.
+    if lang is None:
+        lang = comments_data.get("metadata", {}).get("lang", "Python")
+    
+    # Determine marker(s) based on language.
     if lang.lower() == "python":
         single_marker = "#"
+        multi_marker = "#"
     elif lang.lower() == "java":
         single_marker = "//"
+        multi_marker = "/*"
     else:
         single_marker = "#"
-
+        multi_marker = "#"
+    
     # Process single-line comments.
     updated_comments["single_line_comment"] = []
     for cmt in comments_data.get("single_line_comment", []):
@@ -145,6 +177,8 @@ def process_comments(file_content, comments_data, lang="Python"):
                 "computed_end_line": line_number,
                 "computed_end_column": len(original_line)
             })
+        # Attach associated code block.
+        cmt["associated_code"] = extract_associated_code(file_content, cmt, context_lines=CONTEXT_LINES)
         updated_comments["single_line_comment"].append(cmt)
 
     # Process continued single-line comments.
@@ -168,6 +202,7 @@ def process_comments(file_content, comments_data, lang="Python"):
                 "computed_end_line": end_line,
                 "computed_end_column": len(file_lines[end_line - 1])
             })
+        cmt["associated_code"] = extract_associated_code(file_content, cmt, context_lines=10)
         updated_comments["cont_single_line_comment"].append(cmt)
     
     # Process multi-line comments.
@@ -178,12 +213,8 @@ def process_comments(file_content, comments_data, lang="Python"):
         if not start_line or not end_line or start_line < 1 or end_line > len(file_lines):
             continue
         block_lines = file_lines[start_line - 1:end_line]
-        # For Java multi-line comments, use "/*" as marker.
         if lang.lower() == "java":
-            multi_marker = "/*"
             block_lines = clean_multiline_block(block_lines)
-        else:
-            multi_marker = "#"
         range_info = find_comment_range_in_block(cmt["comment"], block_lines, line_offset=start_line - 1)
         if range_info:
             first_line = file_lines[start_line - 1]
@@ -197,6 +228,7 @@ def process_comments(file_content, comments_data, lang="Python"):
                 "computed_end_line": end_line,
                 "computed_end_column": len(file_lines[end_line - 1])
             })
+        cmt["associated_code"] = extract_associated_code(file_content, cmt, context_lines=10)
         updated_comments["multi_line_comment"].append(cmt)
     
     if "metadata" in comments_data:
@@ -204,7 +236,116 @@ def process_comments(file_content, comments_data, lang="Python"):
     
     return updated_comments
 
+def parse_patch_ranges(patch):
+    """
+    Parse a patch (diff) string to extract hunk ranges from the new file.
+    Hunk headers in the patch have the format:
+      @@ -old_start,old_len +new_start,new_len @@
+    This function extracts the new file's starting line and length and returns a list of (start, end) tuples
+    representing the changed lines in the new file.
+    
+    Returns:
+        List of tuples (new_start, new_end).
+    """
+    ranges = []
+    hunk_regex = re.compile(r'@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@')
+    for line in patch.splitlines():
+        if line.startswith("@@"):
+            match = hunk_regex.search(line)
+            if match:
+                new_start = int(match.group(1))
+                new_length = int(match.group(2)) if match.group(2) else 1
+                new_end = new_start + new_length - 1
+                ranges.append((new_start, new_end))
+    return ranges
 
+def filter_comments_by_diff_intersection(diff_patch, comments, file_content, context_lines=CONTEXT_LINES):
+    # TODO check this function. i didnt do any testing on it.
+    """
+    Given a diff patch string and a list of comment objects (each with computed_start_line and computed_end_line),
+    filter out comments that do not intersect with any diff hunk range.
+    
+    Here, the effective range for each comment is defined as:
+         effective_start = max(1, computed_start_line - context_lines)
+         effective_end   = min(total_lines, computed_end_line + context_lines)
+    
+    A comment is retained if there is at least one diff hunk range (from the patch)
+    such that the effective comment range overlaps it.
+    
+    Args:
+        diff_patch (str): The diff patch string.
+        comments (list): List of comment objects, each containing at least:
+                        - computed_start_line (int)
+                        - computed_end_line (int)
+        file_content (str): Full file content as a string.
+        context_lines (int): Number of extra lines to include on either side.
+    
+    Returns:
+        A filtered list (subset of comments) where each comment's effective range intersects at least one diff range.
+    """
+    # Parse diff patch to get changed line ranges
+    diff_ranges = parse_patch_ranges(diff_patch)
+    total_lines = len(file_content.splitlines())
+    
+    filtered_comments = []
+    for cmt in comments:
+        comp_start = cmt.get("computed_start_line")
+        comp_end = cmt.get("computed_end_line")
+        # Skip comments that do not have computed values.
+        if comp_start is None or comp_end is None:
+            continue
+        # Extend effective range by context_lines, handling file boundaries.
+        effective_start = max(1, comp_start - context_lines)
+        effective_end = min(total_lines, comp_end + context_lines)
+        
+        # Check for intersection with any diff hunk.
+        intersects = False
+        for diff_start, diff_end in diff_ranges:
+            # Intersection exists if the highest start is <= lowest end.
+            if max(effective_start, diff_start) <= min(effective_end, diff_end):
+                intersects = True
+                break
+        if intersects:
+            filtered_comments.append(cmt)
+    return filtered_comments
+
+def add_context_to_comments(comments_data, file_content, lang="Java"):
+    """
+    Add start and end column numbers and associated code context to each comment.
+    Also merge the three comment categories into a single list, with each comment
+    including a "category" field indicating its origin.
+    
+    Args:
+        comments_data: A dict containing:
+            - "metadata": {...} (optionally including "lang")
+            - "single_line_comment": list of { "line_number": int, "comment": str }
+            - "cont_single_line_comment": list of { "start_line": int, "end_line": int, "comment": str }
+            - "multi_line_comment": list of { "start_line": int, "end_line": int, "comment": str }
+        file_content: Full file content as a string (with newlines).
+        lang: Optional language indicator (e.g. "Java" or "Python"). If not provided,
+              the metadata value will be used (defaulting to "Python" if missing).
+              
+    Returns:
+        A flat list of comments (dicts), each with computed ranges, associated code, 
+        and an extra "category" field (one of "single_line", "cont_single_line", or "multi_line").
+    """
+    # Process comments using our existing utility.
+    processed = process_comments(file_content, comments_data, lang)
+    
+    # Merge all comment types into one list with an added 'category' field.
+    merged_comments = []
+    category_mapping = {
+        "single_line_comment": "single_line",
+        "cont_single_line_comment": "cont_single_line",
+        "multi_line_comment": "multi_line"
+    }
+    
+    for key, category in category_mapping.items():
+        for comment in processed.get(key, []):
+            comment["category"] = category
+            merged_comments.append(comment)
+    
+    return merged_comments
 
 # For testing purposes: 
 if __name__ == "__main__":
