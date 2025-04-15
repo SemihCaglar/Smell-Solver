@@ -58,7 +58,6 @@ def add_content_to_files(token, changed_files):
                 file_content = response.json().get("content")
                 decoded_content = base64.b64decode(file_content).decode('utf-8') if file_content else None
                 file["content"] = decoded_content
-                file.pop("patch", None)
             else:
                 print(f"Failed to fetch content for {file['filename']}: {response.status_code}")
                 file["content"] = None
