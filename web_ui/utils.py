@@ -65,6 +65,35 @@ def add_content_to_files(token, changed_files):
     
 def get_changed_files(payload):
 
+    def get_compare_url(payload):
+        """
+        Generate a GitHub compare URL from the webhook payload.
+        For "synchronize" events, it uses the 'before' and 'after' fields.
+        For "opened" or "reopened" events, it uses the 'base' and 'head' fields
+        within the pull_request object.
+        """
+        # Try to determine if it's a "synchronize" or "opened"/"reopened" payload
+        repo_full_name = payload["repository"]["full_name"]
+        base_sha = ""
+        head_sha = ""
+        
+        # Check if payload has a "before" key (typically for "synchronize" events)
+        if "before" in payload and "after" in payload:
+            base_sha = payload["before"]
+            head_sha = payload["after"]
+        else:
+            # For opened, reopened, and similar events, use pull_request object
+            pr = payload.get("pull_request")
+            if pr:
+                # Some events might include "base" and "head" objects under the pull_request
+                base_sha = pr["base"]["sha"]
+                head_sha = pr["head"]["sha"]
+        
+        if repo_full_name and base_sha and head_sha:
+            return f"https://api.github.com/repos/{repo_full_name}/compare/{base_sha}...{head_sha}"
+        else:
+            return None
+
     installation_id = str(payload["installation"]["id"])
     owner = str(payload["repository"]["owner"]["login"])
     repo = str(payload["repository"]["name"])
@@ -75,14 +104,17 @@ def get_changed_files(payload):
     if not token:
         return None
 
-    url = f"https://api.github.com/repos/{owner}/{repo}/pulls/{pr_number}/files"
+    url = get_compare_url(payload)
     headers = {
         "Authorization": f"Bearer {token}",
         "Accept": "application/vnd.github+json"
     }
     response = requests.get(url, headers=headers)
+    #save response as json
+    with open("payloads/response.json", "w") as f:
+        json.dump(response.json(), f, indent=4)
     if response.status_code == 200:
-        files = response.json()
+        files = response.json().get("files", [])  # Extract the 'files' key from the response
         # only keep python and java files
         files = [file for file in files if file["filename"].endswith(('.java', '.py'))]
         add_content_to_files(token, files)

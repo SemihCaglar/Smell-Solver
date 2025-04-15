@@ -2,7 +2,7 @@ import sqlite3
 import json
 import json
 
-DP_PATH = "smellsolver.db"
+DB_PATH = "smellsolver.db"
 
 def add_comment_smell(pr_id, file_path, blob_sha, start_line, end_line, start_column, end_column,
                       smell_type, original_comment, suggested_fix, repair_enabled, status="Pending"):

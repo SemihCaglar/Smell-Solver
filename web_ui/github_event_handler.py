@@ -48,16 +48,18 @@ def process_pr_event(payload):
     installation_id = str(payload["installation"]["id"])
     owner = str(payload["repository"]["owner"]["login"])
     repo = str(payload["repository"]["name"])
+    repo_full_name = str(payload["repository"]["full_name"])
     pr_number = str(payload["number"])
 
     changed_files = utils.get_changed_files(payload) 
     # TODO: process changed files.
     for file in changed_files:
-        comment = utils.extract_comments(file)
-        file["comment"] = comment
+        file["comments"] = utils.extract_comments(file)
 
-    with open("changed_files.json", "w") as f:
+    with open("payloads/changed_files.json", "w") as f:
         json.dump(changed_files, f, indent=4)
+        
+    # TODO burda kaldım
 
     # files are ready in the format: 
     #     {

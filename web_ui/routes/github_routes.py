@@ -10,7 +10,7 @@ def github_app_event():
     payload = request.json
     print("Received GitHub event:", event_type)
     # save payload to file as json
-    with open("github_event_payload.json", "w") as f:
+    with open("payloads/github_event_payload.json", "w") as f:
         json.dump(payload, f, indent=4)
     if event_type == "installation":
         return process_installation_event(payload)
