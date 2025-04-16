@@ -112,7 +112,7 @@ def extract_associated_code(file_content, comment_range, context_lines=CONTEXT_L
     end_line = min(total_lines, comment_range.get("computed_end_line", total_lines) + context_lines)
     return "\n".join(lines[start_line - 1:end_line])
 
-def process_comments(file_content, comments_data, lang=None):
+def process_comments(file_content, comments_data, lang):
     """
     Process the comments for a file.
     
@@ -139,10 +139,6 @@ def process_comments(file_content, comments_data, lang=None):
     file_lines = file_content.splitlines()
     updated_comments = {}
 
-    # Determine language from parameter or metadata.
-    if lang is None:
-        lang = comments_data.get("metadata", {}).get("lang", "Python")
-    
     # Set markers based on language.
     if lang.lower() == "python":
         single_marker = "#"
@@ -366,27 +362,88 @@ def filter_comments_by_diff_intersection(diff_patch, comments, file_content, con
             filtered_comments.append(cmt)
     return filtered_comments
 
-def extract_associated_code(file_content, comment_range, context_lines=CONTEXT_LINES):
+def replace_comment_block(file_content: str, comment_entry: dict, lang: str = 'java', max_width: int = 80) -> str:
     """
-    Extract an associated code block around a comment.
-    
-    Given the full file content (as a string) and a comment_range dictionary (which must include
-    'computed_start_line' and 'computed_end_line'), this function extracts a block of code that spans
-    from `context_lines` before the comment's first line to `context_lines` after its last line.
-    
-    Args:
-        file_content (str): Full file content (with newlines).
-        comment_range (dict): A dictionary containing 'computed_start_line' and 'computed_end_line'.
-        context_lines (int): Number of extra lines to include above and below.
-    
-    Returns:
-        str: The associated code block as a string.
-    """
-    lines = file_content.splitlines()
-    start_line = max(1, comment_range.get("computed_start_line", 1) - context_lines)
-    end_line = min(len(lines), comment_range.get("computed_end_line", len(lines)) + context_lines)
-    return "\n".join(lines[start_line - 1:end_line])
+    Replace the comment in file_content as specified by comment_entry, inserting the repair_suggestion
+    with appropriate comment markers for the given language, and preserving surrounding code.
 
+    Args:
+        file_content: full file text (with newlines).
+        comment_entry: dict with keys:
+            - computed_start_line, computed_start_column
+            - computed_end_line, computed_end_column
+            - repair_suggestion (string)
+        lang: 'java' or 'python'.
+        max_width: maximum line width for wrapping comment text.
+
+    Returns:
+        New text for the block of lines [start_line..end_line], including prefix and suffix.
+    """
+    def wrap_text(text: str, width: int):
+        words = text.split()
+        if not words:
+            return []
+        lines, cur = [], words[0]
+        for w in words[1:]:
+            if len(cur) + 1 + len(w) <= width:
+                cur += " " + w
+            else:
+                lines.append(cur)
+                cur = w
+        lines.append(cur)
+        return lines
+
+    # split with newline preserved so suffix keeps its \n
+    lines = file_content.splitlines(keepends=True)
+
+    sl, sc = comment_entry["computed_start_line"], comment_entry["computed_start_column"]
+    el, ec = comment_entry["computed_end_line"], comment_entry["computed_end_column"]
+
+    prefix = lines[sl - 1][: sc - 1]          # text before comment
+    suffix = lines[el - 1][ec:]               # text after comment (may start with \n)
+
+    suggestion = (comment_entry.get("repair_suggestion") or "").strip()
+
+    # if empty suggestion ⇒ delete comment but keep code
+    if not suggestion:
+        return (prefix + suffix).rstrip("\n")
+
+    # choose markers & wrap width
+    if lang.lower() == "java":
+        single, mstart, mprefix, mend = "//", "/*", " *", " */"
+    else:  # python
+        single, mstart, mprefix, mend = "#", "'''", "", "'''"
+
+    wrap_w = max_width - len(single) - 1
+    wrapped = wrap_text(suggestion, wrap_w)
+
+    # build comment text
+    if len(wrapped) == 1 and len(wrapped[0]) <= wrap_w:
+        comment_lines = [f"{single} {wrapped[0]}"]
+    else:
+        if lang.lower() == "java":
+            comment_lines = [f"{mstart} {wrapped[0]}"] + \
+                            [f"{mprefix} {ln}" for ln in wrapped[1:]] + [mend]
+        else:
+            comment_lines = [mstart] + wrapped + [mend]
+
+    # assemble new block
+    block_parts = []
+    for idx, cl in enumerate(comment_lines):
+        if idx == 0:
+            text = prefix + cl            # first line keeps prefix
+        else:
+            text = cl
+
+        if idx == len(comment_lines) - 1:
+            # if multi‑line, join will inject '\n' BEFORE this line → avoid double newline
+            if len(comment_lines) > 1 and suffix.startswith("\n"):
+                text += suffix[1:]
+            else:
+                text += suffix
+        block_parts.append(text)
+
+    return "\n".join(block_parts).rstrip("\n") # remove trailing newline
 
 # For testing purposes: 
 if __name__ == "__main__":

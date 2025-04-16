@@ -11,8 +11,8 @@ class CommentSmellAI:
         smell_label = ai_processor.detect_comment_smell(code_segment, comment_text)
         repair_suggestion = ai_processor.repair_comment(code_segment, comment_text, smell_label)
         """
-        openai.api.base = config.GPT_40_MINI_ENDPOINT
-        openai.api.key = config.GPT_40_MINI_API_KEY
+        openai.api_base = config.GPT_40_MINI_ENDPOINT
+        openai.api_key = config.GPT_40_MINI_API_KEY
         openai.api_version = "2024-12-01-preview"
         openai.api_type = "azure"
         self.deployment_id = config.GPT_40_MINI_DEPLOYMENT

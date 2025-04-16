@@ -3,7 +3,7 @@ import database.database as database
 import utils
 import json
 import subprocess
-from file_utils import add_context_to_comments, filter_comments_by_diff_intersection
+from file_utils import add_context_to_comments, filter_comments_by_diff_intersection, replace_comment_block
 
 def process_installation_event(payload):
     """
@@ -52,15 +52,41 @@ def process_pr_event(payload):
     repo_full_name = str(payload["repository"]["full_name"])
     pr_number = str(payload["number"])
 
-    changed_files = utils.get_changed_files(payload) 
+    from ai_content.main import CommentSmellAI
+    ai_processor = CommentSmellAI()
+
+    # changed_files = utils.get_changed_files(payload) 
+    # for file in changed_files:
+    #     comments = utils.extract_comments(file)
+    #     file["comments_metadata"] = comments["metadata"]
+    #     comments = add_context_to_comments(comments, file["content"], file["comments_metadata"]["lang"])
+    #     comments = filter_comments_by_diff_intersection(file["patch"], comments, file["content"])
+    #     file["comments"] = comments
+        
+    #     # TODO i probably should handle previous comments here 
+    #     # TODO remove method level comments
+    #     for comment_entry in comments:
+    #         comment_block = comment_entry["comment"]
+    #         associated_code = comment_entry["associated_code"]
+
+    #         # get suggestion
+    #         comment_entry["smell_label"] = ai_processor.detect_comment_smell(associated_code, comment_block)
+    #         comment_entry["repair_suggestion"] = ai_processor.repair_comment(associated_code, comment_block, comment_entry["smell_label"])
+
+    #         # change content for the line range
+    #         comment_entry["new_comment_block"] = replace_comment_block(file["content"], comment_entry, file["comments_metadata"]["lang"])
+            
+    # load changed files from the json
+    with open("payloads/changed_files.json", "r") as f:
+        changed_files = json.load(f)
+            
     for file in changed_files:
-        comments = utils.extract_comments(file)
-        comments = add_context_to_comments(comments, file["content"], comments["metadata"]["lang"])
-        comments = filter_comments_by_diff_intersection(file["patch"], comments, file["content"])
-        file["comments"] = comments
-    
-    # TODO i probably should handle previous comments here 
-    # TODO remove method level comments
+        comments = file["comments"]
+        for comment_entry in comments:
+            comment_entry["new_comment_block"] = replace_comment_block(file["content"], comment_entry, file["comments_metadata"]["lang"])
+            # now we have computed_start_line, computed_end_line, new_comment_block for each comment
+            response = utils.post_suggestions_to_github(payload, file["filename"], comment_entry)
+            print(response)
 
     with open("payloads/changed_files.json", "w") as f:
         json.dump(changed_files, f, indent=4)

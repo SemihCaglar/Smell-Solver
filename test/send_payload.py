@@ -4,7 +4,7 @@ import os
 
 # Load the payload from the JSON file
 current_dir = os.path.dirname(os.path.abspath(__file__))
-payload_path = os.path.join(current_dir, "github_event_payload copy.json")
+payload_path = os.path.join(current_dir, "update_pr_payload.json")
 with open(payload_path, "r") as file:
     payload = json.load(file)
 
