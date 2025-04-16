@@ -32,15 +32,17 @@ def clean_multiline_block(block_lines):
     """
     For Java multi-line comments, remove common comment markers:
       - Remove any leading "/*" from the first line.
-      - Remove any trailing "*/" from the last line.
+      - Remove any trailing "*/" (and anything after it) from the last line.
       - For each line, remove a leading "*" (with an optional following space) if present.
     Returns a list of cleaned lines.
     """
     cleaned = []
-    for line in block_lines:
-        line = re.sub(r'^\s*/\*', '', line)       # Remove starting /*
-        line = re.sub(r'\*/\s*$', '', line)         # Remove ending */
-        line = re.sub(r'^\s*\*\s?', '', line)        # Remove leading * (and an optional space)
+    for idx, line in enumerate(block_lines):
+        if idx == 0:
+            line = re.sub(r'^\s*/\*', '', line)  # Remove starting /*
+        if idx == len(block_lines) - 1:
+            line = re.sub(r'\*/.*$', '', line)    # Remove trailing "*/" and everything after it.
+        line = re.sub(r'^\s*\*\s?', '', line)       # Remove leading * (and an optional space) if present.
         cleaned.append(line)
     return cleaned
 
@@ -92,29 +94,25 @@ def get_marker_position(original_line, marker):
     pos = original_line.find(marker)
     return pos + 1 if pos != -1 else 1
 
-def extract_associated_code(file_content, comment_range, context_lines=10):
+def extract_associated_code(file_content, comment_range, context_lines=CONTEXT_LINES):
     """
     Extract an associated code block around a comment.
     
-    Given the full file content (as a string) and a comment_range dictionary (which must include
-    'computed_start_line' and 'computed_end_line'), this function extracts a block of code that spans
-    from `context_lines` before the comment's first line to `context_lines` after its last line.
-    
-    Args:
-        file_content (str): Full file content (with newlines).
-        comment_range (dict): A dictionary containing 'computed_start_line' and 'computed_end_line'.
-        context_lines (int): Number of extra lines to include above and below.
+    Given the full file content (as a string with newlines) and a comment_range dictionary
+    (which should include 'computed_start_line' and 'computed_end_line'),
+    extract a block of code that extends from (computed_start_line - context_lines)
+    to (computed_end_line + context_lines), handling edge cases.
     
     Returns:
-        str: The associated code block as a string.
+        The associated code block as a string.
     """
     lines = file_content.splitlines()
+    total_lines = len(lines)
     start_line = max(1, comment_range.get("computed_start_line", 1) - context_lines)
-    end_line = min(len(lines), comment_range.get("computed_end_line", len(lines)) + context_lines)
+    end_line = min(total_lines, comment_range.get("computed_end_line", total_lines) + context_lines)
     return "\n".join(lines[start_line - 1:end_line])
 
 def process_comments(file_content, comments_data, lang=None):
-    # TODO check this function. it looks like it is working fine for now.
     """
     Process the comments for a file.
     
@@ -132,7 +130,7 @@ def process_comments(file_content, comments_data, lang=None):
           "computed_end_line", "computed_end_column",
           "associated_code" (the context block around the comment).
     
-    For single-line comments, the computed_start_column is overridden by searching the original line
+    For single-line comments, computed_start_column is overridden by searching the original line
     for the actual comment marker.
     
     Returns:
@@ -145,7 +143,7 @@ def process_comments(file_content, comments_data, lang=None):
     if lang is None:
         lang = comments_data.get("metadata", {}).get("lang", "Python")
     
-    # Determine marker(s) based on language.
+    # Set markers based on language.
     if lang.lower() == "python":
         single_marker = "#"
         multi_marker = "#"
@@ -165,7 +163,7 @@ def process_comments(file_content, comments_data, lang=None):
         original_line = file_lines[line_number - 1]
         block_lines = [original_line]
         range_info = find_comment_range_in_block(cmt["comment"], block_lines, line_offset=line_number - 1)
-        # For single-line, override computed_start_column by searching the full original line.
+        # Override computed_start_column for single-line using the full original line.
         marker_pos = get_marker_position(original_line, single_marker)
         if range_info:
             range_info["computed_start_column"] = marker_pos
@@ -177,8 +175,7 @@ def process_comments(file_content, comments_data, lang=None):
                 "computed_end_line": line_number,
                 "computed_end_column": len(original_line)
             })
-        # Attach associated code block.
-        cmt["associated_code"] = extract_associated_code(file_content, cmt, context_lines=CONTEXT_LINES)
+        cmt["associated_code"] = extract_associated_code(file_content, cmt)
         updated_comments["single_line_comment"].append(cmt)
 
     # Process continued single-line comments.
@@ -202,39 +199,99 @@ def process_comments(file_content, comments_data, lang=None):
                 "computed_end_line": end_line,
                 "computed_end_column": len(file_lines[end_line - 1])
             })
-        cmt["associated_code"] = extract_associated_code(file_content, cmt, context_lines=10)
+        cmt["associated_code"] = extract_associated_code(file_content, cmt)
         updated_comments["cont_single_line_comment"].append(cmt)
     
     # Process multi-line comments.
-    updated_comments["multi_line_comment"] = []
-    for cmt in comments_data.get("multi_line_comment", []):
-        start_line = cmt.get("start_line")
-        end_line = cmt.get("end_line")
-        if not start_line or not end_line or start_line < 1 or end_line > len(file_lines):
-            continue
-        block_lines = file_lines[start_line - 1:end_line]
-        if lang.lower() == "java":
-            block_lines = clean_multiline_block(block_lines)
-        range_info = find_comment_range_in_block(cmt["comment"], block_lines, line_offset=start_line - 1)
-        if range_info:
-            first_line = file_lines[start_line - 1]
-            marker_pos = get_marker_position(first_line, multi_marker)
-            range_info["computed_start_column"] = marker_pos
-            cmt.update(range_info)
-        else:
-            cmt.update({
-                "computed_start_line": start_line,
-                "computed_start_column": get_marker_position(file_lines[start_line - 1], multi_marker),
-                "computed_end_line": end_line,
-                "computed_end_column": len(file_lines[end_line - 1])
-            })
-        cmt["associated_code"] = extract_associated_code(file_content, cmt, context_lines=10)
-        updated_comments["multi_line_comment"].append(cmt)
+    if lang.lower() == "python":
+        # Skip Python multi-line comments (e.g., docstrings)
+        updated_comments["multi_line_comment"] = [] 
+    else: 
+        updated_comments["multi_line_comment"] = []
+        for cmt in comments_data.get("multi_line_comment", []):
+            start_line = cmt.get("start_line")
+            end_line = cmt.get("end_line")
+            if not start_line or not end_line or start_line < 1 or end_line > len(file_lines):
+                continue
+            # Use original lines for mapping and for marker extraction.
+            orig_block_lines = file_lines[start_line - 1:end_line]
+            # For text matching only, clean a copy of the block if language is Java.
+            if lang.lower() == "java":
+                cleaned_block_lines = clean_multiline_block(orig_block_lines)
+            else:
+                cleaned_block_lines = orig_block_lines
+            # Compute the normalized range from the cleaned block.
+            range_info = find_comment_range_in_block(cmt["comment"], cleaned_block_lines, line_offset=start_line - 1)
+            if range_info:
+                # For start, use the original first line (and marker multi_marker).
+                marker_pos_start = get_marker_position(orig_block_lines[0], multi_marker)
+                range_info["computed_start_column"] = marker_pos_start
+                # For end, use the original last line.
+                original_last_line = orig_block_lines[-1]
+                marker_index = original_last_line.find("*/")
+                if marker_index != -1:
+                    # The 1-indexed column should be marker_index + length_of("*/").
+                    marker_pos_end = marker_index + len("*/")
+                else:
+                    marker_pos_end = range_info["computed_end_column"]
+                range_info["computed_end_column"] = marker_pos_end
+                cmt.update(range_info)
+            else:
+                # Fallback if matching fails: use markers from the original lines.
+                original_last_line = orig_block_lines[-1]
+                marker_index = original_last_line.find("*/")
+                marker_pos_end = marker_index + len("*/") if marker_index != -1 else len(original_last_line)
+                cmt.update({
+                    "computed_start_line": start_line,
+                    "computed_start_column": get_marker_position(orig_block_lines[0], multi_marker),
+                    "computed_end_line": end_line,
+                    "computed_end_column": marker_pos_end
+                })
+            cmt["associated_code"] = extract_associated_code(file_content, cmt)
+            updated_comments["multi_line_comment"].append(cmt)
     
     if "metadata" in comments_data:
         updated_comments["metadata"] = comments_data["metadata"]
     
     return updated_comments
+
+def add_context_to_comments(comments_data, file_content, lang="Java"):
+    """
+    Add start and end column numbers and associated code context to each comment.
+    Also merge the three comment categories into a single list, with each comment
+    including a "category" field indicating its origin.
+    
+    Args:
+        comments_data: A dict containing:
+            - "metadata": {...} (optionally including "lang")
+            - "single_line_comment": list of { "line_number": int, "comment": str }
+            - "cont_single_line_comment": list of { "start_line": int, "end_line": int, "comment": str }
+            - "multi_line_comment": list of { "start_line": int, "end_line": int, "comment": str }
+        file_content: Full file content as a string (with newlines).
+        lang: Optional language indicator (e.g. "Java" or "Python"). If not provided,
+              the metadata value will be used (defaulting to "Python" if missing).
+              
+    Returns:
+        A flat list of comments (dicts), each with computed ranges, associated code, 
+        and an extra "category" field (one of "single_line", "cont_single_line", or "multi_line").
+    """
+    # Process comments using our existing utility.
+    processed = process_comments(file_content, comments_data, lang)
+    
+    # Merge all comment types into one list with an added 'category' field.
+    merged_comments = []
+    category_mapping = {
+        "single_line_comment": "single_line",
+        "cont_single_line_comment": "cont_single_line",
+        "multi_line_comment": "multi_line"
+    }
+    
+    for key, category in category_mapping.items():
+        for comment in processed.get(key, []):
+            comment["category"] = category
+            merged_comments.append(comment)
+    
+    return merged_comments
 
 def parse_patch_ranges(patch):
     """
@@ -309,84 +366,68 @@ def filter_comments_by_diff_intersection(diff_patch, comments, file_content, con
             filtered_comments.append(cmt)
     return filtered_comments
 
-def add_context_to_comments(comments_data, file_content, lang="Java"):
+def extract_associated_code(file_content, comment_range, context_lines=CONTEXT_LINES):
     """
-    Add start and end column numbers and associated code context to each comment.
-    Also merge the three comment categories into a single list, with each comment
-    including a "category" field indicating its origin.
+    Extract an associated code block around a comment.
+    
+    Given the full file content (as a string) and a comment_range dictionary (which must include
+    'computed_start_line' and 'computed_end_line'), this function extracts a block of code that spans
+    from `context_lines` before the comment's first line to `context_lines` after its last line.
     
     Args:
-        comments_data: A dict containing:
-            - "metadata": {...} (optionally including "lang")
-            - "single_line_comment": list of { "line_number": int, "comment": str }
-            - "cont_single_line_comment": list of { "start_line": int, "end_line": int, "comment": str }
-            - "multi_line_comment": list of { "start_line": int, "end_line": int, "comment": str }
-        file_content: Full file content as a string (with newlines).
-        lang: Optional language indicator (e.g. "Java" or "Python"). If not provided,
-              the metadata value will be used (defaulting to "Python" if missing).
-              
+        file_content (str): Full file content (with newlines).
+        comment_range (dict): A dictionary containing 'computed_start_line' and 'computed_end_line'.
+        context_lines (int): Number of extra lines to include above and below.
+    
     Returns:
-        A flat list of comments (dicts), each with computed ranges, associated code, 
-        and an extra "category" field (one of "single_line", "cont_single_line", or "multi_line").
+        str: The associated code block as a string.
     """
-    # Process comments using our existing utility.
-    processed = process_comments(file_content, comments_data, lang)
-    
-    # Merge all comment types into one list with an added 'category' field.
-    merged_comments = []
-    category_mapping = {
-        "single_line_comment": "single_line",
-        "cont_single_line_comment": "cont_single_line",
-        "multi_line_comment": "multi_line"
-    }
-    
-    for key, category in category_mapping.items():
-        for comment in processed.get(key, []):
-            comment["category"] = category
-            merged_comments.append(comment)
-    
-    return merged_comments
+    lines = file_content.splitlines()
+    start_line = max(1, comment_range.get("computed_start_line", 1) - context_lines)
+    end_line = min(len(lines), comment_range.get("computed_end_line", len(lines)) + context_lines)
+    return "\n".join(lines[start_line - 1:end_line])
+
 
 # For testing purposes: 
 if __name__ == "__main__":
-    file_content ="/*\n * Licensed to the Apache Software Foundation (ASF) under one\n * or more contributor license agreements. See the NOTICE file\n * distributed with this work for additional information\n * regarding copyright ownership. The ASF licenses this file\n * to you under the Apache License, Version 2.0 (the\n * \"License\"); you may not use this file except in compliance\n * with the License. You may obtain a copy of the License at\n *\n *   http://www.apache.org/licenses/LICENSE-2.0\n *\n * Unless required by applicable law or agreed to in writing,\n * software distributed under the License is distributed on an\n * \"AS IS\" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY\n * KIND, either express or implied. See the License for the\n * specific language governing permissions and limitations\n * under the License.\n */\n\npackage org.apache.thrift.test;\n\nimport java.nio.ByteBuffer;\nimport java.util.LinkedList;\n\nimport thrift.test.OneOfEachBeans;\n\npublic class JavaBeansTest {\n  public static void main(String[] args) throws Exception {\n    // Test isSet methods\n    OneOfEachBeans ooe = new OneOfEachBeans();\n\n    // Nothing should be set\n    if (ooe.is_set_a_bite())\n      throw new RuntimeException(\"isSet method error: unset field returned as set!\");\n    if (ooe.is_set_base64())\n      throw new RuntimeException(\"isSet method error: unset field returned as set!\");\n    if (ooe.is_set_byte_list())\n      throw new RuntimeException(\"isSet method error: unset field returned as set!\");\n    if (ooe.is_set_double_precision())\n      throw new RuntimeException(\"isSet method error: unset field returned as set!\");\n    if (ooe.is_set_i16_list())\n      throw new RuntimeException(\"isSet method error: unset field returned as set!\");\n    if (ooe.is_set_i64_list())\n      throw new RuntimeException(\"isSet method error: unset field returned as set!\");\n    if (ooe.is_set_boolean_field())\n      throw new RuntimeException(\"isSet method error: unset field returned as set!\");\n    if (ooe.is_set_integer16())\n      throw new RuntimeException(\"isSet method error: unset field returned as set!\");\n    if (ooe.is_set_integer32())\n      throw new RuntimeException(\"isSet method error: unset field returned as set!\");\n    if (ooe.is_set_integer64())\n      throw new RuntimeException(\"isSet method error: unset field returned as set!\");\n    if (ooe.is_set_some_characters())\n      throw new RuntimeException(\"isSet method error: unset field returned as set!\");\n\n    for (int i = 1; i < 12; i++){\n      if (ooe.isSet(ooe.fieldForId(i)))\n        throw new RuntimeException(\"isSet method error: unset field \" + i + \" returned as set!\");\n    }\n\n    // Everything is set\n    ooe.set_a_bite((byte) 1);\n    ooe.set_base64(ByteBuffer.wrap(\"bytes\".getBytes()));\n    ooe.set_byte_list(new LinkedList<Byte>());\n    ooe.set_double_precision(1);\n    ooe.set_i16_list(new LinkedList<Short>());\n    ooe.set_i64_list(new LinkedList<Long>());\n    ooe.set_boolean_field(true);\n    ooe.set_integer16((short) 1);\n    ooe.set_integer32(1);\n    ooe.set_integer64(1);\n    ooe.set_some_characters(\"string\");\n\n    if (!ooe.is_set_a_bite())\n      throw new RuntimeException(\"isSet method error: set field returned as unset!\");\n    if (!ooe.is_set_base64())\n      throw new RuntimeException(\"isSet method error: set field returned as unset!\");\n    if (!ooe.is_set_byte_list())\n      throw new RuntimeException(\"isSet method error: set field returned as unset!\");\n    if (!ooe.is_set_double_precision())\n      throw new RuntimeException(\"isSet method error: set field returned as unset!\");\n    if (!ooe.is_set_i16_list())\n      throw new RuntimeException(\"isSet method error: set field returned as unset!\");\n    if (!ooe.is_set_i64_list())\n      throw new RuntimeException(\"isSet method error: set field returned as unset!\");\n    if (!ooe.is_set_boolean_field())\n      throw new RuntimeException(\"isSet method error: set field returned as unset!\");\n    if (!ooe.is_set_integer16())\n      throw new RuntimeException(\"isSet method error: set field returned as unset!\");\n    if (!ooe.is_set_integer32())\n      throw new RuntimeException(\"isSet method error: set field returned as unset!\");\n    if (!ooe.is_set_integer64())\n      throw new RuntimeException(\"isSet method error: set field returned as unset!\");\n    if (!ooe.is_set_some_characters())\n      throw new RuntimeException(\"isSet method error: set field returned as unset!\");\n\n    for (int i = 1; i < 12; i++){\n      if (!ooe.isSet(ooe.fieldForId(i)))\n        throw new RuntimeException(\"isSet method error: set field \" + i + \" returned as unset!\");\n    }\n\n    // Should throw exception when field doesn't exist\n    boolean exceptionThrown = false;\n    try{\n      if (ooe.isSet(ooe.fieldForId(100)));\n    } catch (IllegalArgumentException e){\n      exceptionThrown = true;\n    }\n    if (!exceptionThrown)\n      throw new RuntimeException(\"isSet method error: non-existent field provided as agument but no exception thrown!\");\n  }\n}\n"
+    file_content ="/*\n * Licensed to the Apache Software Foundation (ASF) under one\n * or more contributor license agreements. See the NOTICE file\n * distributed with this work for additional information\n * regarding copyright ownership. The ASF licenses this file\n * to you under the Apache License, Version 2.0 (the\n * \"License\"); you may not use this file except in compliance\n * with the License. You may obtain a copy of the License at\n *\n *   http://www.apache.org/licenses/LICENSE-2.0\n *\n * Unless required by applicable law or agreed to in writing,\n * software distributed under the License is distributed on an\n * \"AS IS\" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY\n * KIND, either express or implied. See the License for the\n * specific language governing permissions and limitations\n * under the License.\n */jncdjncdjncdjn\n\npackage org.apache.thrift.test;\n\nimport java.nio.ByteBuffer;\nimport java.util.LinkedList;\n\nimport thrift.test.OneOfEachBeans;\n\npublic class JavaBeansTest {\n  public static void main(String[] args) throws Exception {\n    // Test isSet methods\n    OneOfEachBeans ooe = new OneOfEachBeans();\n\n    // Nothing should be set\n    if (ooe.is_set_a_bite())\n      throw new RuntimeException(\"isSet method error: unset field returned as set!\");\n    if (ooe.is_set_base64())\n      throw new RuntimeException(\"isSet method error: unset field returned as set!\");\n    if (ooe.is_set_byte_list())\n      throw new RuntimeException(\"isSet method error: unset field returned as set!\");\n    if (ooe.is_set_double_precision())\n      throw new RuntimeException(\"isSet method error: unset field returned as set!\");\n    if (ooe.is_set_i16_list())\n      throw new RuntimeException(\"isSet method error: unset field returned as set!\");\n    if (ooe.is_set_i64_list())\n      throw new RuntimeException(\"isSet method error: unset field returned as set!\");\n    if (ooe.is_set_boolean_field())\n      throw new RuntimeException(\"isSet method error: unset field returned as set!\");\n    if (ooe.is_set_integer16())\n      throw new RuntimeException(\"isSet method error: unset field returned as set!\");\n    if (ooe.is_set_integer32())\n      throw new RuntimeException(\"isSet method error: unset field returned as set!\");\n    if (ooe.is_set_integer64())\n      throw new RuntimeException(\"isSet method error: unset field returned as set!\");\n    if (ooe.is_set_some_characters())\n      throw new RuntimeException(\"isSet method error: unset field returned as set!\");\n\n    for (int i = 1; i < 12; i++){\n      if (ooe.isSet(ooe.fieldForId(i)))\n        throw new RuntimeException(\"isSet method error: unset field \" + i + \" returned as set!\");\n    }\n\n    // Everything is set\n    ooe.set_a_bite((byte) 1);\n    ooe.set_base64(ByteBuffer.wrap(\"bytes\".getBytes()));\n    ooe.set_byte_list(new LinkedList<Byte>());\n    ooe.set_double_precision(1);\n    ooe.set_i16_list(new LinkedList<Short>());\n    ooe.set_i64_list(new LinkedList<Long>());\n    ooe.set_boolean_field(true);\n    ooe.set_integer16((short) 1);\n    ooe.set_integer32(1);\n    ooe.set_integer64(1);\n    ooe.set_some_characters(\"string\");\n\n    if (!ooe.is_set_a_bite())\n      throw new RuntimeException(\"isSet method error: set field returned as unset!\");\n    if (!ooe.is_set_base64())\n      throw new RuntimeException(\"isSet method error: set field returned as unset!\");\n    if (!ooe.is_set_byte_list())\n      throw new RuntimeException(\"isSet method error: set field returned as unset!\");\n    if (!ooe.is_set_double_precision())\n      throw new RuntimeException(\"isSet method error: set field returned as unset!\");\n    if (!ooe.is_set_i16_list())\n      throw new RuntimeException(\"isSet method error: set field returned as unset!\");\n    if (!ooe.is_set_i64_list())\n      throw new RuntimeException(\"isSet method error: set field returned as unset!\");\n    if (!ooe.is_set_boolean_field())\n      throw new RuntimeException(\"isSet method error: set field returned as unset!\");\n    if (!ooe.is_set_integer16())\n      throw new RuntimeException(\"isSet method error: set field returned as unset!\");\n    if (!ooe.is_set_integer32())\n      throw new RuntimeException(\"isSet method error: set field returned as unset!\");\n    if (!ooe.is_set_integer64())\n      throw new RuntimeException(\"isSet method error: set field returned as unset!\");\n    if (!ooe.is_set_some_characters())\n      throw new RuntimeException(\"isSet method error: set field returned as unset!\");\n\n    for (int i = 1; i < 12; i++){\n      if (!ooe.isSet(ooe.fieldForId(i)))\n        throw new RuntimeException(\"isSet method error: set field \" + i + \" returned as unset!\");\n    }\n\n    // Should throw exception when field doesn't exist\n    boolean exceptionThrown = false;\n    try{\n      if (ooe.isSet(ooe.fieldForId(100)));\n    } catch (IllegalArgumentException e){\n      exceptionThrown = true;\n    }\n    if (!exceptionThrown)\n      throw new RuntimeException(\"isSet method error: non-existent field provided as agument but no exception thrown!\");\n  }\n}\n"
     # Example comments data (simulate what you might have)
     comments_data={
-            "metadata": {
-                "filename": "tmpuefnfrl9_file2.java",
-                "lang": "Java",
-                "total_lines": 112,
-                "total_lines_of_comments": 23,
-                "blank_lines": 10,
-                "sloc": 79
+        "metadata": {
+            "filename": "textcomment.java",
+            "lang": "Java",
+            "total_lines": 112,
+            "total_lines_of_comments": 23,
+            "blank_lines": 10,
+            "sloc": 79
+        },
+        "single_line_comment": [
+            {
+                "line_number": 29,
+                "comment": "Test isSet methods"
             },
-            "single_line_comment": [
-                {
-                    "line_number": 29,
-                    "comment": "Test isSet methods"
-                },
-                {
-                    "line_number": 32,
-                    "comment": "Nothing should be set"
-                },
-                {
-                    "line_number": 61,
-                    "comment": "Everything is set"
-                },
-                {
-                    "line_number": 102,
-                    "comment": "Should throw exception when field doesn't exist"
-                }
-            ],
-            "cont_single_line_comment": [],
-            "multi_line_comment": [
-                {
-                    "start_line": 1,
-                    "end_line": 18,
-                    "comment": "Licensed to the Apache Software Foundation (ASF) under one* or more contributor license agreements. See the NOTICE file* distributed with this work for additional information* regarding copyright ownership. The ASF licenses this file* to you under the Apache License, Version 2.0 (the* \"License\"); you may not use this file except in compliance* with the License. You may obtain a copy of the License at**   http://www.apache.org/licenses/LICENSE-2.0** Unless required by applicable law or agreed to in writing,* software distributed under the License is distributed on an* \"AS IS\" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY* KIND, either express or implied. See the License for the* specific language governing permissions and limitations* under the License."
-                }
-            ]
-        }
+            {
+                "line_number": 32,
+                "comment": "Nothing should be set"
+            },
+            {
+                "line_number": 61,
+                "comment": "Everything is set"
+            },
+            {
+                "line_number": 102,
+                "comment": "Should throw exception when field doesn't exist"
+            }
+        ],
+        "cont_single_line_comment": [],
+        "multi_line_comment": [
+            {
+                "start_line": 1,
+                "end_line": 18,
+                "comment": "Licensed to the Apache Software Foundation (ASF) under one* or more contributor license agreements. See the NOTICE file* distributed with this work for additional information* regarding copyright ownership. The ASF licenses this file* to you under the Apache License, Version 2.0 (the* \"License\"); you may not use this file except in compliance* with the License. You may obtain a copy of the License at**   http://www.apache.org/licenses/LICENSE-2.0** Unless required by applicable law or agreed to in writing,* software distributed under the License is distributed on an* \"AS IS\" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY* KIND, either express or implied. See the License for the* specific language governing permissions and limitations* under the License."
+            }
+        ]
+    }
     
     # Process the comments (for Python, we are skipping multi-line comments)
     processed = process_comments(file_content, comments_data, lang="Java")
