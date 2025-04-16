@@ -61,26 +61,11 @@ def process_pr_event(payload):
     
     # TODO i probably should handle previous comments here 
     # TODO remove method level comments
-        
-    
 
     with open("payloads/changed_files.json", "w") as f:
         json.dump(changed_files, f, indent=4)
         
     # TODO burda kaldım
-
-    # files are ready in the format: 
-    #     {
-    #     "sha": "917838fcc0d15a637cc04a473f6e77728a44aa7e",
-    #     "filename": "pr_demo.java",
-    #     "status": "added",
-    #     "additions": 53,
-    #     "deletions": 0,
-    #     "changes": 53,
-    #     "blob_url": "https://github.com/SemihCaglar/new-repo/blob/f6a750dad6153da6dbc38aabe5778f43366a7e4c/pr_demo.java",
-    #     "patch": "@@ -0,0 +1,53 @@\n+\"\n+\n+public class DemoPR {\n+\n+    public static void main(String[] args) {\n+        // this makes a new scanner, which can read from\n+        // STDIN, located at System.in. The scanner lets us look\n+        // for tokens, aka stuff the user has entered.\n+        Scanner sc = new Scanner(System.in);\n+\n+        int a = 5; // Setting variable a to 5\n+\n+        taskTmpPath = ttp; // task tmp\n+        \n+        // int temp = 0;\n+        // System.out.println(\"Temp: \" + temp);\n+\n+        // TODO: Refactor main method for clarity and error handling.\n+        System.out.println(\"Demo complete.\");\n+    }\n+    \n+    /**\n+     * Substract two numbers.\n+     */\n+    public static int substract(int x, int y) {\n+        // add x and y\n+        return x - y;\n+    }\n+    \n+    public static void beautify() {\n+        /* ***********************\n+           *    Section Divider    *\n+           *********************** */\n+        System.out.println(\"Beautification method executed.\");\n+    }\n+    \n+    public static void attributedMethod() {\n+        // Added by John Doe\n+        System.out.println(\"Attributed method executed.\");\n+    }\n+    \n+    public void setFitnessePort(int fitnessePort) {\n+        /* I dedicate all this code, all my work, to my wife,\n+        Darlene, who will have to support me and our children\n+        and the dog once it gets released into the public.*/\n+\n+        // Port on which fitnesse would run. Defaults to 8082\n+        this.fitnessePort = fitnessePort;\n+    }\n+}\n+\n+\n+\"\n\\ No newline at end of file",
-    #     "content": "\"\n\npublic class Demo..."
-    # }
     
     return jsonify({
         "message": "Pull request event processed",

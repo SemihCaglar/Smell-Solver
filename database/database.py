@@ -2,8 +2,7 @@
 import sqlite3
 from database.installations_repositories import *
 from database.comments_files import *
-
-DB_PATH = "smellsolver.db"
+from config import DB_PATH
 
 def init_db():
     """Initialize the database and create tables if they do not exist."""

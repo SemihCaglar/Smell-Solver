@@ -1,8 +1,7 @@
 # installations_repositories.py
 import sqlite3
 import uuid
-
-DB_PATH = "smellsolver.db"
+from config import DB_PATH
 
 def add_installation(installation_id):
     """Add an installation record (if not already present)."""
