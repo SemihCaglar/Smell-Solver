@@ -86,6 +86,7 @@ def process_pr_event(payload):
             comment_entry["new_comment_block"] = replace_comment_block(file["content"], comment_entry, file["comments_metadata"]["lang"])
             # now we have computed_start_line, computed_end_line, new_comment_block for each comment
             response = utils.post_suggestions_to_github(payload, file["filename"], comment_entry)
+            comment_entry["github_response"] = response
             print(response)
 
     with open("payloads/changed_files.json", "w") as f:

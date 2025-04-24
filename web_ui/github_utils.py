@@ -118,24 +118,32 @@ def post_multiline_comment(url, token, path, start_line, end_line, head_sha, bas
 
     side: "RIGHT" (new code) or "LEFT" (base)
     """
-    # TODO learn about right and left
-    payload = {
-        "body": comment_body,
-        "path": path,
-        "start_line": int(start_line),
-        "start_side": side,
-        "line": int(end_line),
-        "side": side,        # must match start_side
-        "start_commit_id": base_sha,
-        "commit_id": head_sha,
-    }
+    if start_line == end_line:
+        payload = {
+            "commit_id": head_sha,
+            "path": path,
+            "body": comment_body,
+            "line": int(start_line),
+            "side": side,
+        }
+    else:
+        # TODO learn about right and left
+        payload = {
+            "commit_id": head_sha,
+            "path": path,
+            "body": comment_body,
+            "start_line": int(start_line),
+            "start_side": side,
+            "line": int(end_line),
+            "side": side,        # must match start_side
+        }
     print(json.dumps(payload, indent=4))
     r = requests.post(
         url,
         headers={
             "Authorization": f"token {token}",
             # "Accept": "application/vnd.github+json"
-            "Accept": "application/vnd.github.comfort-fade-preview+json"
+            "Accept": "application/vnd.github.comfort-fade-preview+json"  # needed for multi-line
         },
         json=payload
     )
@@ -170,7 +178,7 @@ def post_suggestions_to_github(payload, path, comment_entry):
     base_sha, head_sha = get_base_and_head_sha(payload)
     
     return post_multiline_comment(
-        url = payload["pull_request"]["review_comments_url"],
+        url = payload["pull_request"]["review_comments_url"], #        "review_comments_url": "https://api.github.com/repos/SemihCaglar/new-repo/pulls/13/comments",
         token = token,
         path = path,
         start_line = comment_entry["computed_start_line"],
