@@ -1,91 +1,156 @@
 import sqlite3
 import json
-import json
 from config import DB_PATH
 
-def add_comment_smell(pr_id, file_path, blob_sha, start_line, end_line, start_column, end_column,
-                      smell_type, original_comment, suggested_fix, repair_enabled, status="Pending"):
+
+def add_comment_smell(
+    pr_id,
+    file_path,
+    commit_sha,
+    line,
+    side,
+    smell_type,
+    associated_code,
+    comment_body,
+    suggestion=None,
+    github_comment_id=None,
+    github_comment_url=None,
+    is_smell=True,
+    repair_enabled=True,
+    status="Pending"
+):
     """
-    Insert a new comment smell into the comment_smells table, update the smell_summary table,
-    and (if repair is enabled) increment the smell_count in the corresponding pull request.
+    Insert a new comment smell into the comment_smells table,
+    storing the associated code block. If `is_smell` is True,
+    update the smell_summary and (if repair_enabled) increment
+    the smell_count in the pull_requests table.
     Returns the ID of the new comment smell record.
     """
     with sqlite3.connect(DB_PATH) as conn:
         c = conn.cursor()
-        # Insert the new comment smell with repair_enabled flag.
-        c.execute("""
-            INSERT INTO comment_smells 
-            (pr_id, file_path, blob_sha, start_line, end_line, start_column, end_column, smell_type,
-             original_comment, suggested_fix, status, is_current, repair_enabled)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
-        """, (pr_id, file_path, blob_sha, start_line, end_line, start_column, end_column,
-              smell_type, original_comment, suggested_fix, status, repair_enabled))
+        # Insert the new comment smell with associated code
+        c.execute(
+            """
+            INSERT INTO comment_smells (
+                pr_id,
+                file_path,
+                commit_sha,
+                line,
+                side,
+                smell_type,
+                associated_code,
+                comment_body,
+                suggestion,
+                github_comment_id,
+                github_comment_url,
+                status,
+                is_current,
+                repair_enabled
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
+            """,
+            (
+                pr_id,
+                file_path,
+                commit_sha,
+                line,
+                side,
+                smell_type,
+                associated_code,
+                comment_body,
+                suggestion,
+                github_comment_id,
+                github_comment_url,
+                status,
+                1 if repair_enabled else 0,
+            )
+        )
         conn.commit()
         smell_id = c.lastrowid
 
-        # Update smell_summary table (incrementing total_smells regardless of repair settings).
-        c.execute("""
-            INSERT INTO smell_summary (pr_id, repo_internal_id, total_smells)
-            VALUES (?, (SELECT repo_internal_id FROM pull_requests WHERE id = ?), 1)
-            ON CONFLICT(pr_id) DO UPDATE SET total_smells = total_smells + 1
-        """, (pr_id, pr_id))
-        conn.commit()
-
-        # Increment smell_count in pull_requests only if repair_enabled is true.
-        if repair_enabled:
-            c.execute("""
-                UPDATE pull_requests 
-                SET smell_count = smell_count + 1, updated_at = CURRENT_TIMESTAMP 
-                WHERE id = ?
-            """, (pr_id,))
+        # Only count real comment smells
+        if is_smell:
+            # Update smell_summary (increment total_smells)
+            c.execute(
+                """
+                INSERT INTO smell_summary (pr_id, repo_internal_id, total_smells)
+                VALUES (
+                    ?,
+                    (SELECT repo_internal_id FROM pull_requests WHERE id = ?),
+                    1
+                )
+                ON CONFLICT(pr_id) DO UPDATE
+                  SET total_smells = total_smells + 1
+                """,
+                (pr_id, pr_id)
+            )
             conn.commit()
+
+            # Optionally increment smell_count in pull_requests
+            if repair_enabled:
+                c.execute(
+                    """
+                    UPDATE pull_requests
+                       SET smell_count = smell_count + 1,
+                           updated_at = CURRENT_TIMESTAMP
+                     WHERE id = ?
+                    """,
+                    (pr_id,)
+                )
+                conn.commit()
 
     return smell_id
 
-def archive_comment_smells_for_file(pr_id, repo_internal_id, file_path):
+
+def archive_comment_smells_for_file(pr_id, file_path):
     """
-    Archive comment smells for a specific file in a pull request by setting is_current = 0.
-    Also recalculates the pull request's smell_count (only counting active smells with repair_enabled = 1).
+    Archive comment smells for a specific file in a pull request
+    by setting is_current = 0. Recalculates the PR's smell_count.
     """
     with sqlite3.connect(DB_PATH) as conn:
         c = conn.cursor()
-        # Archive the smells.
-        c.execute("""
+        # Archive the active smells for this file
+        c.execute(
+            """
             UPDATE comment_smells
-            SET is_current = 0
-            WHERE pr_id = ?
-              AND file_path = ?
-              AND EXISTS (
-                  SELECT 1 FROM pull_requests
-                  WHERE pull_requests.id = comment_smells.pr_id
-                    AND pull_requests.repo_internal_id = ?
-              )
-        """, (pr_id, file_path, repo_internal_id))
+               SET is_current = 0
+             WHERE pr_id = ?
+               AND file_path = ?
+            """,
+            (pr_id, file_path)
+        )
         conn.commit()
 
-        # Recalculate active (is_current = 1 and repair_enabled = 1) smells for this pull request and update smell_count.
-        c.execute("""
+        # Recalculate active smells count
+        c.execute(
+            """
             UPDATE pull_requests
-            SET smell_count = (
-                SELECT COUNT(*) FROM comment_smells 
-                WHERE pr_id = ? AND is_current = 1 AND repair_enabled = 1
-            ),
-            updated_at = CURRENT_TIMESTAMP
-            WHERE id = ?
-        """, (pr_id, pr_id))
+               SET smell_count = (
+                   SELECT COUNT(*)
+                     FROM comment_smells
+                    WHERE pr_id = ?
+                      AND is_current = 1
+                      AND repair_enabled = 1
+               ),
+                   updated_at = CURRENT_TIMESTAMP
+             WHERE id = ?
+            """,
+            (pr_id, pr_id)
+        )
         conn.commit()
+
 
 def delete_comment_smells_for_file(pr_id, file_path):
     """
-    (Optional) If you need a deletion method for specific purposes.
+    Delete all comment smell records for a specific file in a PR.
     """
     with sqlite3.connect(DB_PATH) as conn:
         c = conn.cursor()
-        c.execute("""
-            DELETE FROM comment_smells 
-            WHERE pr_id = ? AND file_path = ?
-        """, (pr_id, file_path))
+        c.execute(
+            "DELETE FROM comment_smells WHERE pr_id = ? AND file_path = ?",
+            (pr_id, file_path)
+        )
         conn.commit()
+
 
 def add_file_record(pr_id, repo_internal_id, file_path, blob_sha, status):
     """
@@ -94,12 +159,21 @@ def add_file_record(pr_id, repo_internal_id, file_path, blob_sha, status):
     """
     with sqlite3.connect(DB_PATH) as conn:
         c = conn.cursor()
-        c.execute("""
-            INSERT INTO files (pr_id, repo_internal_id, file_path, blob_sha, status)
-            VALUES (?, ?, ?, ?, ?)
-        """, (pr_id, repo_internal_id, file_path, blob_sha, status))
+        c.execute(
+            """
+            INSERT INTO files (
+                pr_id,
+                repo_internal_id,
+                file_path,
+                blob_sha,
+                status
+            ) VALUES (?, ?, ?, ?, ?)
+            """,
+            (pr_id, repo_internal_id, file_path, blob_sha, status)
+        )
         conn.commit()
         return c.lastrowid
+
 
 def update_file_record(file_id, blob_sha=None, status=None):
     """
@@ -123,6 +197,7 @@ def update_file_record(file_id, blob_sha=None, status=None):
         c.execute(query, params)
         conn.commit()
 
+
 def update_repo_settings(repo_internal_id, create_issues, enabled_smells):
     """
     Update the repository settings for a given repository.
@@ -132,11 +207,17 @@ def update_repo_settings(repo_internal_id, create_issues, enabled_smells):
     settings_json = json.dumps(enabled_smells)
     with sqlite3.connect(DB_PATH) as conn:
         c = conn.cursor()
-        c.execute("""
-            INSERT INTO repo_settings (repo_internal_id, create_issues, enabled_smells)
-            VALUES (?, ?, ?)
+        c.execute(
+            """
+            INSERT INTO repo_settings (
+                repo_internal_id,
+                create_issues,
+                enabled_smells
+            ) VALUES (?, ?, ?)
             ON CONFLICT(repo_internal_id) DO UPDATE SET
-                create_issues = excluded.create_issues,
-                enabled_smells = excluded.enabled_smells
-        """, (repo_internal_id, 1 if create_issues else 0, settings_json))
+              create_issues = excluded.create_issues,
+              enabled_smells = excluded.enabled_smells
+            """,
+            (repo_internal_id, 1 if create_issues else 0, settings_json)
+        )
         conn.commit()

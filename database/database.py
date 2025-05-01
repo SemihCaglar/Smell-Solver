@@ -2,6 +2,7 @@
 import sqlite3
 from database.installations_repositories import *
 from database.comments_files import *
+from database.pull_requests import *
 from config import DB_PATH
 
 def init_db():
@@ -30,48 +31,56 @@ def init_db():
         # 3. pull_requests table (basic metadata with smell_count)
         c.execute("""
             CREATE TABLE IF NOT EXISTS pull_requests (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                repo_internal_id TEXT,
-                pr_number INTEGER,
-                title TEXT,
-                status TEXT,
-                created_at TIMESTAMP,
-                updated_at TIMESTAMP,
-                smell_count INTEGER DEFAULT 0,
-                FOREIGN KEY (repo_internal_id) REFERENCES repositories (internal_id)
-            )
+                id               INTEGER PRIMARY KEY AUTOINCREMENT,
+                repo_internal_id TEXT    NOT NULL,
+                pr_number        INTEGER NOT NULL,
+                title            TEXT,
+                status           TEXT,
+                created_at       TIMESTAMP,
+                updated_at       TIMESTAMP,
+                smell_count      INTEGER DEFAULT 0,
+                FOREIGN KEY (repo_internal_id) REFERENCES repositories (internal_id),
+                UNIQUE (repo_internal_id, pr_number)
+            );
         """)
         # 4. comment_smells table with extended location details, blob_sha, is_current flag, and repair_enabled flag
+
         c.execute("""
-            CREATE TABLE IF NOT EXISTS comment_smells (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                pr_id INTEGER,
-                file_path TEXT,
-                blob_sha TEXT,
-                start_line INTEGER,
-                end_line INTEGER,
-                start_column INTEGER,
-                end_column INTEGER,
-                smell_type TEXT CHECK (smell_type IN (
-                    'Vague', 
-                    'Misleading', 
-                    'Obvious', 
-                    'Beautification', 
-                    'Commented-Out Code', 
-                    'Attribution', 
-                    'Too Much Information', 
-                    'Non-Local', 
-                    'No Comment', 
-                    'Task'
-                )),
-                original_comment TEXT,
-                suggested_fix TEXT,
-                status TEXT CHECK (status IN ('Accepted', 'Rejected', 'Pending')),
-                is_current BOOLEAN DEFAULT 1,
-                repair_enabled BOOLEAN DEFAULT 1,
-                FOREIGN KEY (pr_id) REFERENCES pull_requests (id)
-            )
+        CREATE TABLE IF NOT EXISTS comment_smells (
+            id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+            pr_id                 INTEGER NOT NULL
+                                    REFERENCES pull_requests(id),
+            file_path             TEXT    NOT NULL,                     -- e.g. "src/foo/Bar.java"
+            commit_sha            TEXT    NOT NULL,                     -- PR-branch HEAD SHA
+            line                  INTEGER NOT NULL,                     -- diff line number
+            side                  TEXT    NOT NULL
+                                    CHECK(side IN ('LEFT','RIGHT')),
+            smell_type            TEXT    NOT NULL
+                                    CHECK(smell_type IN (
+                                    'Vague',
+                                    'Misleading',
+                                    'Obvious',
+                                    'Beautification',
+                                    'Commented-Out Code',
+                                    'Attribution',
+                                    'Too Much Information',
+                                    'Non-Local',
+                                    'No Comment',
+                                    'Task'
+                                    )),
+            associated_code       TEXT    NOT NULL,                     -- the code block around the comment
+            comment_body          TEXT    NOT NULL,                     -- what you originally posted
+            suggestion            TEXT,                                  -- the “suggestion” snippet
+            github_comment_id     INTEGER UNIQUE,                       -- the GitHub comment’s id
+            github_comment_url    TEXT,                                  -- link back to GitHub UI
+            status                TEXT    NOT NULL DEFAULT 'Pending'
+                                    CHECK(status IN ('Accepted','Rejected','Pending')),
+            is_current            BOOLEAN NOT NULL DEFAULT 1,            -- mark outdated comments
+            repair_enabled        BOOLEAN NOT NULL DEFAULT 1,            -- user toggle
+            created_at            DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
         """)
+
         # 5. repo_settings table
         c.execute("""
             CREATE TABLE IF NOT EXISTS repo_settings (

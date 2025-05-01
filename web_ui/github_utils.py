@@ -137,7 +137,6 @@ def post_multiline_comment(url, token, path, start_line, end_line, head_sha, bas
             "line": int(end_line),
             "side": side,        # must match start_side
         }
-    print(json.dumps(payload, indent=4))
     r = requests.post(
         url,
         headers={

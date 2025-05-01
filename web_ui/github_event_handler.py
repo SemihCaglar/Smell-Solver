@@ -4,6 +4,7 @@ import utils
 import json
 import subprocess
 from file_utils import add_context_to_comments, filter_comments_by_diff_intersection, replace_comment_block
+from database.database import *
 
 def process_installation_event(payload):
     """
@@ -51,6 +52,16 @@ def process_pr_event(payload):
     repo = str(payload["repository"]["name"])
     repo_full_name = str(payload["repository"]["full_name"])
     pr_number = str(payload["number"])
+    github_repo_id   = payload["repository"]["id"]
+
+    repo_internal_id = get_repository_id_by_full_name(repo_full_name)  
+    if repo_internal_id is None:
+        repo_internal_id = add_repository(
+            installation_id,
+            github_repo_id,
+            repo_full_name
+        )
+
 
     from ai_content.main import CommentSmellAI
     ai_processor = CommentSmellAI()
@@ -71,6 +82,7 @@ def process_pr_event(payload):
 
     #         # get suggestion
     #         comment_entry["smell_label"] = ai_processor.detect_comment_smell(associated_code, comment_block)
+    #        # TODO look for settings enabled
     #         comment_entry["repair_suggestion"] = ai_processor.repair_comment(associated_code, comment_block, comment_entry["smell_label"])
 
     #         # change content for the line range
@@ -80,19 +92,74 @@ def process_pr_event(payload):
     with open("payloads/changed_files.json", "r") as f:
         changed_files = json.load(f)
             
-    for file in changed_files:
-        comments = file["comments"]
-        for comment_entry in comments:
-            comment_entry["new_comment_block"] = replace_comment_block(file["content"], comment_entry, file["comments_metadata"]["lang"])
-            # now we have computed_start_line, computed_end_line, new_comment_block for each comment
-            response = utils.post_suggestions_to_github(payload, file["filename"], comment_entry)
-            comment_entry["github_response"] = response
-            print(response)
+    # for file in changed_files:
+    #     comments = file["comments"]
+    #     for comment_entry in comments:
+    #         comment_entry["new_comment_block"] = replace_comment_block(file["content"], comment_entry, file["comments_metadata"]["lang"])
+    #         # now we have computed_start_line, computed_end_line, new_comment_block for each comment
+    #         response = utils.post_suggestions_to_github(payload, file["filename"], comment_entry)
+    #         comment_entry["github_response"] = response
+    #         print(response)
 
     with open("payloads/changed_files.json", "w") as f:
         json.dump(changed_files, f, indent=4)
-        
-    # TODO burda kaldım
+       
+    # DATABASE STUFF 
+    # 1) Upsert the PR and get your local ID
+    pr_id = add_or_update_pull_request(
+        repo_internal_id = repo_internal_id,
+        pr_number        = int(payload["number"]),
+        title            = payload["pull_request"]["title"],
+        status           = payload["action"],               # e.g. "opened", "synchronize", "closed"
+        created_at       = payload["pull_request"]["created_at"]
+    )
+
+    # 3) Inside your loop over changed_files:
+    for file in changed_files:
+        # assign exactly the vars your helper needs:
+        file_path = file["filename"]
+        blob_sha  = file["sha"]
+        status    = file["status"]
+        # now call the helper with those variables:
+        file_id = add_file_record(pr_id, repo_internal_id, file_path, blob_sha, status)
+
+    commit_sha = payload["pull_request"]["head"]["sha"]
+    for file in changed_files:
+        file_path  = file["filename"]
+        for comment_entry in file["comments"]:
+            # 1) Post the suggestion
+            response = comment_entry["github_response"] 
+            
+            github_id  = response["id"]
+            github_url = response["html_url"]
+            
+            # 3) Prepare your own fields
+            pr_id         = pr_id                            # from your earlier upsert
+            line          = comment_entry["computed_start_line"]
+            smell_type    = comment_entry["smell_label"]
+            comment_body  = comment_entry["comment"]
+            suggestion    = comment_entry.get("repair_suggestion", None)
+            repair_flag   = comment_entry.get("repair_enabled", True)
+            is_smell        = (smell_type != "Not A Smell")        #! or however you flag non-smells
+            associated_code = comment_entry["associated_code"]
+
+            add_comment_smell(
+                        pr_id=pr_id,
+                        file_path=file_path,
+                        commit_sha=commit_sha,
+                        line=line,
+                        side="RIGHT",
+                        smell_type=smell_type,
+                        associated_code=associated_code,
+                        comment_body=comment_body,
+                        suggestion=suggestion,
+                        github_comment_id=github_id,
+                        github_comment_url=github_url,
+                        is_smell=is_smell,
+                        repair_enabled=repair_flag,
+                        status="Pending"
+                    )
+
     
     return jsonify({
         "message": "Pull request event processed",
