@@ -113,23 +113,32 @@
             {% for pr in pr_list %}
             <tr>
               <td>{{ pr.date }}</td>
-              <td>{{ pr.pr_number }}</td>
+              <td>
+                <a href="{{ pr.url }}" target="_blank">
+                  #{{ pr.pr_number }}
+                </a>
+              </td>
               <td>{{ pr.title }}</td>
               <td>{{ pr.smell_count }}</td>
               <td>
-                <a href="{{ url_for('repo_routes.pr_analysis', repo_id=repo.internal_id, pr_number=pr.pr_number) }}" class="btn btn-primary btn-sm">
+                <a href="{{ url_for('repo_routes.pr_analysis',
+                                    repo_id=repo.internal_id,
+                                    pr_number=pr.pr_number) }}"
+                  class="btn btn-primary btn-sm">
                   View Analysis
                 </a>
               </td>
             </tr>
             {% else %}
             <tr>
-              <td colspan="5" class="text-center">No pull requests available.</td>
+              <td colspan="6" class="text-center">No pull requests available.</td>
             </tr>
             {% endfor %}
           </tbody>
         </table>
       </div>
+    </div>
+
     </div>
   </div>
   
@@ -247,35 +256,42 @@ Highcharts.chart('lineChartContainer', {
   credits: { enabled: false }
 });
 
-// Render the Highcharts pie chart with dummy data.
+// Prepare pie data from smellRecords, excluding "No Comment"
+function preparePieData() {
+  const counts = {};
+  smellRecords.forEach(record => {
+    const type = record.smell_type;
+    if (type === "Not a smell") return;     //TODO skip non-smells
+    counts[type] = (counts[type] || 0) + 1;
+  });
+  return Object.entries(counts).map(([type, count]) => ({
+    name: type,
+    y: count
+  }));
+}
+
+// Render the Highcharts pie chart with real data
 Highcharts.chart('pieChartContainer', {
-  chart: {
-    type: 'pie'
-  },
-  title: {
-    text: 'Smell Distribution'
-  },
-  tooltip: {
-    pointFormat: '{point.name}: <b>{point.y}</b>'  // Show the count (y value) in the tooltip
-  },
+  chart: { type: 'pie' },
+  title: { text: 'Smell Distribution' },
+  tooltip: { pointFormat: '{point.name}: <b>{point.y}</b>' },
   plotOptions: {
     pie: {
       allowPointSelect: true,
       cursor: 'pointer',
       dataLabels: {
         enabled: true,
-        format: '{point.name}: {point.percentage:.1f}%'  // Show percentages on the slices
+        format: '{point.name}: {point.percentage:.1f}%'
       }
     }
   },
   series: [{
     name: 'Count',
-    data: allowedSmells.map(function(type) {
-      return { name: type, y: Math.floor(Math.random() * 10) + 1 };
-    })
+    data: preparePieData()
   }],
   credits: { enabled: false }
 });
+
 </script>
 
 <!-- Create containers for Highcharts -->

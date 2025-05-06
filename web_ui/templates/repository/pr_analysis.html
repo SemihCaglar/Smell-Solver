@@ -3,64 +3,220 @@
 <head>
   <meta charset="utf-8">
   <title>PR Analysis - PR #{{ pr_details.pr_number }}</title>
+
+  <!-- Bootstrap & DataTables CSS -->
   <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+  <link rel="stylesheet"
+        href="https://cdn.datatables.net/1.10.25/css/dataTables.bootstrap4.min.css">
+  <!-- jsTree CSS -->
+  <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.12/themes/default/style.min.css">
+
   <style>
-    .smell-table td, .smell-table th {
-      vertical-align: middle;
+    .table-fixed { table-layout: fixed; width: 100%; }
+    .table-fixed th, .table-fixed td { word-wrap: break-word; vertical-align: middle; }
+    .cell-content { max-height: 4.5em; overflow: hidden; }
+    .view-all-btn { font-size: 0.9em; padding: 0; }
+    .modal-dialog-scrollable .modal-body { max-height: 60vh; overflow-y: auto; }
+    .dataTables_wrapper .dataTables_paginate .paginate_button {
+      margin: 0 0.3em;
     }
+    #fileTree { margin-bottom:1rem; max-height:300px; overflow:auto; border:1px solid #ddd; padding:10px; border-radius:4px; }
   </style>
 </head>
 <body>
-<div class="container mt-4">
-  <h1>PR Analysis</h1>
-  <div class="mb-3">
-    <h2>PR #{{ pr_details.pr_number }}: {{ pr_details.title }}</h2>
-    <p>
-      <strong>Status:</strong> {{ pr_details.status }}<br>
-      <strong>Created At:</strong> {{ pr_details.created_at }}<br>
-      <strong>Updated At:</strong> {{ pr_details.updated_at }}
-    </p>
-  </div>
+  <div class="container mt-4">
+    <h1>PR Analysis</h1>
+    <div class="mb-3">
+      <h2>PR #{{ pr_details.pr_number }}: {{ pr_details.title }}</h2>
+      <p>
+        <strong>Status:</strong> {{ pr_details.status }}<br>
+      </p>
+    </div>
 
-  <h3>Detected Comment Smells</h3>
-  {% if pr_details.smell_details %}
-  <table class="table table-bordered smell-table">
-    <thead class="thead-light">
-      <tr>
-        <th>File</th>
-        <th>Line</th>
-        <th>Smell Type</th>
-        <th>Original Comment</th>
-        <th>Suggested Fix</th>
-        <th>Status</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for smell in pr_details.smell_details %}
-      <tr>
-        <td>{{ smell.file }}</td>
-        <td>{{ smell.line }}</td>
-        <td>{{ smell.smell_type }}</td>
-        <td>{{ smell.original }}</td>
-        <td>{{ smell.suggested }}</td>
-        <td>{{ smell.status }}</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-  {% else %}
-    <p>No comment smells detected for this PR.</p>
-  {% endif %}
+    <h3>Files</h3>
+    <div id="fileTree"></div>
 
-  <div class="mt-4">
-    <a href="{{ url_for('repo_routes.repo_dashboard', repo_id=repo_id) }}" class="btn btn-secondary">Back to Repository Dashboard</a>
-    {% if pr_details.github_pr_url %}
-    <a href="{{ pr_details.github_pr_url }}" target="_blank" class="btn btn-primary">Open PR on GitHub</a>
+    <h3>Detected Comment Smells</h3>
+    {% if pr_details.smell_details %}
+    <table id="smellTable" class="table table-bordered table-fixed">
+      <thead class="thead-light">
+        <tr>
+          <th style="width:15%">File</th>
+          <th style="width:5%">Line</th>
+          <th style="width:10%">Type</th>
+          <th style="width:18%">Code Block</th>
+          <th style="width:18%">Original Comment</th>
+          <th style="width:18%">Suggested Fix</th>
+          <th style="width:8%">Status</th>
+          <th style="width:8%">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for smell in pr_details.smell_details %}
+        <tr>
+          <td>{{ smell.file }}</td>
+          <td>{{ smell.line }}</td>
+          <td>{{ smell.smell_type }}</td>
+
+          <!-- Code Block -->
+          <td>
+            {% set code = smell.code_block %}
+            {% if code|length > 200 %}
+              <div class="cell-content">{{ code[:200] }}…</div>
+              <button class="btn btn-link view-all-btn" data-toggle="modal"
+                      data-target="#codeModal-{{ smell.comment_id }}">View All</button>
+              <div class="modal fade" id="codeModal-{{ smell.comment_id }}" tabindex="-1">
+                <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                  <div class="modal-content">
+                    <div class="modal-header">
+                      <h5 class="modal-title">Associated Code</h5>
+                      <button type="button" class="close" data-dismiss="modal">&times;</button>
+                    </div>
+                    <div class="modal-body"><pre>{{ code }}</pre></div>
+                  </div>
+                </div>
+              </div>
+            {% else %}
+              <pre>{{ code }}</pre>
+            {% endif %}
+          </td>
+
+          <!-- Original Comment -->
+          <td>
+            {% set text = smell.original %}
+            {% if text|length > 200 %}
+              <div class="cell-content">{{ text[:200] }}…</div>
+              <button class="btn btn-link view-all-btn" data-toggle="modal"
+                      data-target="#origModal-{{ smell.comment_id }}">View All</button>
+              <div class="modal fade" id="origModal-{{ smell.comment_id }}" tabindex="-1">
+                <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                  <div class="modal-content">
+                    <div class="modal-header">
+                      <h5 class="modal-title">Original Comment</h5>
+                      <button type="button" class="close" data-dismiss="modal">&times;</button>
+                    </div>
+                    <div class="modal-body"><pre>{{ text }}</pre></div>
+                  </div>
+                </div>
+              </div>
+            {% else %}
+              <div>{{ text }}</div>
+            {% endif %}
+          </td>
+
+          <!-- Suggested Fix -->
+          <td>
+            {% set sug = smell.suggested %}
+            {% if sug|length > 200 %}
+              <div class="cell-content">{{ sug[:200] }}…</div>
+              <button class="btn btn-link view-all-btn" data-toggle="modal"
+                      data-target="#sugModal-{{ smell.comment_id }}">View All</button>
+              <div class="modal fade" id="sugModal-{{ smell.comment_id }}" tabindex="-1">
+                <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                  <div class="modal-content">
+                    <div class="modal-header">
+                      <h5 class="modal-title">Suggested Fix</h5>
+                      <button type="button" class="close" data-dismiss="modal">&times;</button>
+                    </div>
+                    <div class="modal-body"><pre>{{ sug }}</pre></div>
+                  </div>
+                </div>
+              </div>
+            {% else %}
+              <div>{{ sug }}</div>
+            {% endif %}
+          </td>
+
+          <td>{{ smell.status }}</td>
+          <td>
+            <a href="{{ smell.url }}" target="_blank"
+               class="btn btn-outline-secondary btn-sm">View on GitHub</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+      <p>No comment smells detected for this PR.</p>
     {% endif %}
-  </div>
-</div>
 
-<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/js/bootstrap.bundle.min.js"></script>
+    <div class="mt-4">
+      <a href="{{ url_for('repo_routes.repo_dashboard', repo_id=repo_id) }}"
+         class="btn btn-secondary">Back to Repository Dashboard</a>
+      {% if pr_details.github_pr_url %}
+        <a href="{{ pr_details.github_pr_url }}" target="_blank"
+           class="btn btn-primary">Open PR on GitHub</a>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- JS Libraries -->
+  <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap-treeview@1.2.0/dist/bootstrap-treeview.min.js"></script>
+  <script src="https://cdn.datatables.net/1.10.25/js/jquery.dataTables.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.12/jstree.min.js"></script>
+
+  <script>
+  $(function(){
+    // initialize DataTable
+    const table = $('#smellTable').DataTable({
+      pagingType: 'simple_numbers',   // switch this
+      order: [[2,'asc']],       // you can still sort by Smell Type by default
+      searching: false,         // hides the search bar
+      columnDefs: [
+        { orderable: false, targets: [0,1,3,4,5,7] }
+      ]
+    });
+
+    // get unique file paths
+    const allSmells = {{ pr_details.smell_details|tojson }};
+    const paths = Array.from(new Set(allSmells.map(s=>s.file)));
+
+    // build jsTree nodes
+    const nodes = [];
+    const added = new Set();
+    // root
+    nodes.push({ id:'ALL', parent:'#', text:'All Files' });
+    paths.forEach(path=>{
+      const parts = path.split('/');
+      for(let i=0;i<parts.length;i++){
+        const id = parts.slice(0,i+1).join('/');
+        if(!added.has(id)){
+          const parent = i===0? 'ALL' : parts.slice(0,i).join('/');
+          nodes.push({ id: id, parent: parent, text: parts[i] });
+          added.add(id);
+        }
+      }
+    });
+
+    // init jsTree
+    $('#fileTree').jstree({
+      core: { data: nodes },
+      plugins: [ "wholerow" ]
+    })
+    // on select
+    .on('changed.jstree', function(e, data){
+      if(!data.selected.length) return;
+      const id = data.instance.get_node(data.selected[0]).id;
+      let term = '', regex=false;
+      const node = data.instance.get_node(id);
+      if(id!=='ALL'){
+        regex = true;
+        term = node.children.length
+             ? '^'+escapeRegex(id)+'/'
+             : '^'+escapeRegex(id)+'$';
+      }
+      table.column(0).search(term, regex, false).draw();
+    })
+    // default select all
+    .on('ready.jstree', function(){
+      $('#fileTree').jstree('select_node','ALL');
+    });
+
+    function escapeRegex(s){ return s.replace(/[-\/\\^$*+?.()|[\]{}]/g,'\\$&'); }
+  });
+  </script>
 </body>
 </html>
