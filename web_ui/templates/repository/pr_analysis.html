@@ -154,69 +154,87 @@
   <!-- JS Libraries -->
   <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap-treeview@1.2.0/dist/bootstrap-treeview.min.js"></script>
   <script src="https://cdn.datatables.net/1.10.25/js/jquery.dataTables.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.12/jstree.min.js"></script>
-
   <script>
   $(function(){
-    // initialize DataTable
+    console.log("⚙️ PR Analysis script start");
+
+    // 1) initialize DataTable with filtering enabled but search box hidden
     const table = $('#smellTable').DataTable({
-      pagingType: 'simple_numbers',   // switch this
-      order: [[2,'asc']],       // you can still sort by Smell Type by default
-      searching: false,         // hides the search bar
+      // 'lfrtip' is the default; 'lrtip' removes the filter input but leaves filter API active
+      dom: 'lrtip',
+      pagingType: 'simple_numbers',
+      order: [[2,'asc']],
       columnDefs: [
         { orderable: false, targets: [0,1,3,4,5,7] }
       ]
     });
+    console.log("DataTable rows total:", table.rows().count());
 
-    // get unique file paths
+    // 2) build jsTree nodes
     const allSmells = {{ pr_details.smell_details|tojson }};
-    const paths = Array.from(new Set(allSmells.map(s=>s.file)));
-
-    // build jsTree nodes
-    const nodes = [];
-    const added = new Set();
-    // root
-    nodes.push({ id:'ALL', parent:'#', text:'All Files' });
-    paths.forEach(path=>{
+    const paths     = Array.from(new Set(allSmells.map(s => s.file)));
+    const nodes     = [], added = new Set();
+    nodes.push({ id: 'ALL', parent: '#', text: 'All Files' });
+    paths.forEach(path => {
       const parts = path.split('/');
-      for(let i=0;i<parts.length;i++){
-        const id = parts.slice(0,i+1).join('/');
-        if(!added.has(id)){
-          const parent = i===0? 'ALL' : parts.slice(0,i).join('/');
-          nodes.push({ id: id, parent: parent, text: parts[i] });
+      for (let i = 0; i < parts.length; i++) {
+        const id     = parts.slice(0, i+1).join('/');
+        const parent = i === 0 ? 'ALL' : parts.slice(0, i).join('/');
+        if (!added.has(id)) {
+          nodes.push({ id, parent, text: parts[i] });
           added.add(id);
         }
       }
     });
+    console.log("jsTree nodes built:", nodes);
 
-    // init jsTree
-    $('#fileTree').jstree({
-      core: { data: nodes },
-      plugins: [ "wholerow" ]
-    })
-    // on select
-    .on('changed.jstree', function(e, data){
-      if(!data.selected.length) return;
-      const id = data.instance.get_node(data.selected[0]).id;
-      let term = '', regex=false;
-      const node = data.instance.get_node(id);
-      if(id!=='ALL'){
-        regex = true;
-        term = node.children.length
-             ? '^'+escapeRegex(id)+'/'
-             : '^'+escapeRegex(id)+'$';
-      }
-      table.column(0).search(term, regex, false).draw();
-    })
-    // default select all
-    .on('ready.jstree', function(){
-      $('#fileTree').jstree('select_node','ALL');
-    });
+    // 3) init jsTree + debug on selection
+    $('#fileTree')
+      .jstree({
+        core: { data: nodes },
+        plugins: ["wholerow"]
+      })
+      .on('ready.jstree', () => {
+        console.log("jsTree ready → selecting ALL");
+        $('#fileTree').jstree('select_node', 'ALL');
+      })
+      .on('changed.jstree', (e, data) => {
+        console.log("🔄 changed.jstree →", data);
+        const sel = data.selected[0];
+        console.log("Selected node ID:", sel);
 
-    function escapeRegex(s){ return s.replace(/[-\/\\^$*+?.()|[\]{}]/g,'\\$&'); }
+        // show raw file-list in column 0
+        const files = table.column(0).data().toArray();
+        console.log("All file values:", files);
+
+        let term = '', regex = false;
+        if (sel !== 'ALL') {
+          const node = data.instance.get_node(sel);
+          regex = true;
+          term  = node.children.length
+                ? '^' + escapeRegex(sel) + '/'
+                : '^' + escapeRegex(sel) + '$';
+        }
+        console.log("→ Applying filter term:", term, "| regex:", regex);
+
+        // test regex against each value
+        if (term) {
+          const re = new RegExp(term);
+          console.log("Regex test results:", files.map(f => re.test(f)));
+        }
+
+        console.log("Rows before filter:", table.rows({ filter: 'applied' }).count());
+        table
+          .column(0)
+          .search(term, regex, false);  // apply the column filter
+        table.draw();
+        console.log("Rows after filter:", table.rows({ filter: 'applied' }).count());
+      });
+
+    function escapeRegex(str) {
+      return str.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+    }
   });
   </script>
-</body>
-</html>
