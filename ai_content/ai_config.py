@@ -1,0 +1,3 @@
+GPT_40_MINI_ENDPOINT = 'https://smellrepair.cognitiveservices.azure.com/'
+GPT_40_MINI_API_KEY = '7bgBwmKZronGjlxjMEfV7LOoQrKQryxfJ3JMgdSZ5T7W166sI2YoJQQJ99BDACHYHv6XJ3w3AAAAACOG3ZWN'
+GPT_40_MINI_DEPLOYMENT = "gpt-4o-mini"

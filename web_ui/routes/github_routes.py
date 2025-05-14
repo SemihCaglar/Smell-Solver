@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from github_event_handler import process_installation_event, process_pr_event
+from web_ui.github_event_handler import process_installation_event, process_pr_event
 import json
 
 github_bp = Blueprint('github', __name__)

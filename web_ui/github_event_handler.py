@@ -1,9 +1,9 @@
 from flask import session, jsonify
 import database.database as database
-import utils
+import web_ui.utils
 import json
 import subprocess
-from file_utils import add_context_to_comments, filter_comments_by_diff_intersection, replace_comment_block
+from web_ui.file_utils import add_context_to_comments, filter_comments_by_diff_intersection, replace_comment_block
 from database.database import *
 
 def process_installation_event(payload):

@@ -9,7 +9,7 @@ import tempfile
 import json
 import os
 
-from github_utils import *
+from web_ui.github_utils import *
 
 def start_ngrok():
     """Start an ngrok tunnel with a reserved subdomain using pyngrok."""

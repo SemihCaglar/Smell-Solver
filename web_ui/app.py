@@ -3,11 +3,11 @@ from flask import Flask, render_template, request, session, redirect, url_for, f
 import config
 from pyngrok import ngrok
 import database.database as database
-from utils import start_ngrok, get_jwt, get_installation_access_token
-from github_event_handler import process_installation_event
-from routes.main_routes import main_bp
-from routes.github_routes import github_bp
-from routes.repo_routes import repo_bp
+from web_ui.utils import start_ngrok, get_jwt, get_installation_access_token
+from web_ui.github_event_handler import process_installation_event
+from web_ui.routes.main_routes import main_bp
+from web_ui.routes.github_routes import github_bp
+from web_ui.routes.repo_routes import repo_bp
 
 app = Flask(__name__)
 app.secret_key = 'your_secret_key_here'
