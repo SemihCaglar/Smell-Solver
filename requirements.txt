@@ -4,3 +4,4 @@ PyJWT
 requests
 nirjas
 openai==0.28
+gunicorn
