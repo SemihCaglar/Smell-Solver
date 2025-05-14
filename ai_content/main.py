@@ -86,6 +86,12 @@ Comment:
         Returns:
             A string containing the revised comment that is clear, concise, and accurate.
         """
+
+        if(label == "Not a smell"):
+            return comment
+        elif label in ["Task", "Commented out code", "Beautification", "Obvious", "Attribution", "Irrelevant"]:
+            return ""
+
         prompt = f"""
 You are provided with a code segment, an inline code comment, and a label indicating the detected comment smell.
 Using the label, rewrite the comment so that it is clear, concise, and accurately reflects what the code does.

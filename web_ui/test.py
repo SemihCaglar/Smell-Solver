@@ -1,4 +1,4 @@
-import web_ui.utils
+import web_ui.utils as utils
 import json
 
 with open("changed_files.json", "r") as f:

@@ -1,6 +1,6 @@
 from flask import session, jsonify
 import database.database as database
-import web_ui.utils
+import web_ui.utils as utils
 import json
 import subprocess
 from web_ui.file_utils import add_context_to_comments, filter_comments_by_diff_intersection, replace_comment_block
