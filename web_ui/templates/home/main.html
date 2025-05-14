@@ -26,7 +26,7 @@
           {% endfor %}
         {% endif %}
       {% endwith %}
-      <form method="POST" action="{{ url_for('main.main_page') }}">
+      <form method="POST" action="{{ url_for('main_routes.main_page') }}">
         <div class="form-group">
           <label for="repository_id">Enter Repository ID:</label>
           <input type="text" class="form-control" name="repository_id" id="repository_id" placeholder="Repository ID">
@@ -46,7 +46,7 @@
                 <button class="btn btn-info btn-sm mr-2" onclick="copyToClipboard('{{ repo.internal_id }}')">
                   Copy ID
                 </button>
-                <form method="POST" action="{{ url_for('main.remove_repo') }}" style="display: inline;">
+                <form method="POST" action="{{ url_for('main_routes.remove_repo') }}" style="display: inline;">
                   <input type="hidden" name="repo_id" value="{{ repo.internal_id }}">
                   <button type="submit" class="btn btn-danger btn-sm">Remove</button>
                 </form>

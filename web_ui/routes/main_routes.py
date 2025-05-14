@@ -19,7 +19,7 @@ def main_page():
                 flash("Repository already added.", "info")
         else:
             flash("Invalid repository ID.", "danger")
-        return redirect(url_for('main.main_page'))
+        return redirect(url_for('main_routes.main_page'))
 
     repos = database.get_repositories_by_internal_ids(session.get("internal_repo_ids", []))
     return render_template("home/main.html", repositories=repos)
@@ -40,10 +40,10 @@ def remove_repo():
     repo_id = request.form.get('repo_id')
     if not repo_id:
         flash("Repository ID is missing.", "danger")
-        return redirect(url_for('main.main_page'))
+        return redirect(url_for('main_routes.main_page'))
     if 'internal_repo_ids' in session and repo_id in session['internal_repo_ids']:
         session['internal_repo_ids'].remove(repo_id)
         flash("Repository removed.", "success")
     else:
         flash("Repository not found in session.", "info")
-    return redirect(url_for('main.main_page'))
+    return redirect(url_for('main_routes.main_page'))

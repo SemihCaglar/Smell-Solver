@@ -11,12 +11,6 @@ def init_db():
     with sqlite3.connect(DB_PATH) as conn:
         c = conn.cursor()
 
-        # DROP old tables
-        c.execute("DROP TABLE IF EXISTS comment_smells;")
-        c.execute("DROP TABLE IF EXISTS pull_requests;")
-        c.execute("DROP TABLE IF EXISTS repo_settings;")
-        # (drop any other tables you want reset...)
-
         # 1. installations table
         c.execute("""
             CREATE TABLE IF NOT EXISTS installations (
