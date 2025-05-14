@@ -2,7 +2,7 @@ from flask import Blueprint, render_template, request, session, redirect, url_fo
 import database.database as database
 import time
 
-main_bp = Blueprint('main', __name__) #TODO add template folder parameter
+main_bp = Blueprint('main_routes', __name__) #TODO add template folder parameter
 
 @main_bp.route('/', methods=['GET', 'POST'])
 def main_page():
