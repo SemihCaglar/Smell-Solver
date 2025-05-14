@@ -99,7 +99,7 @@ def process_pr_event(payload):
                 else: 
                     #! REPAIR HERE
                     comment_entry["repair_enabled"] = True
-                    comment_entry["repair_suggestion"] = ai_processor.repair_comment(associated_code, comment_block, smell_label)
+                    comment_entry["repair_suggestion"] = ai_processor.repair_comment(associated_code, comment_block, smell_label, file["comments_metadata"]["lang"])
                 
                     # change content for the line range
                     comment_entry["new_comment_block"] = replace_comment_block(file["content"], comment_entry, file["comments_metadata"]["lang"])

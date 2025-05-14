@@ -404,23 +404,8 @@ def replace_comment_block(file_content: str, comment_entry: dict, lang: str = 'j
 
     # clean up the chatgpt response
     # 1) Grab raw suggestion (might be None) and strip backticks/quotes
-    raw = comment_entry.get("repair_suggestion") or ""
-    clean = raw.strip("`'\"")
 
-    # 2) Remove one leading comment marker if present
-    if lang.lower() == "java":
-        # Drop any leading whitespace, then //, then any whitespace after
-        tmp = clean.lstrip()
-        if tmp.startswith("//"):
-            clean = tmp[2:].lstrip()
-    else:
-        # Python: drop leading # 
-        tmp = clean.lstrip()
-        if tmp.startswith("#"):
-            clean = tmp[1:].lstrip()
-
-    # 3) Now `clean` has no leading `//` or `#`, nor backticks/quotes
-    suggestion = clean
+    suggestion = (comment_entry.get("repair_suggestion") or "").strip()
 
     # if empty suggestion ⇒ delete comment but keep code
     if not suggestion:

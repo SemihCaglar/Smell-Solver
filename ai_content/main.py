@@ -74,7 +74,7 @@ Comment:
 """
         return self.get_chat_response(prompt, role="user")
 
-    def repair_comment(self, code, comment, label):
+    def repair_comment(self, code, comment, label, lang="java"):
         """
         Generate a repair suggestion for a given comment, informed by the detected smell label.
 
@@ -106,5 +106,23 @@ Original comment:
 '''{comment}'''
 """
         # Increase max_tokens as needed for repair suggestions.
-        return self.get_chat_response(prompt, role="user", max_tokens=100)
+        raw = self.get_chat_response(prompt, role="user", max_tokens=100)
+        clean = raw.strip("`'\"")
+
+        # 2) Remove one leading comment marker if present
+        if lang.lower() == "java":
+            # Drop any leading whitespace, then //, then any whitespace after
+            tmp = clean.lstrip()
+            if tmp.startswith("//"):
+                clean = tmp[2:].lstrip()
+        else:
+            # Python: drop leading # 
+            tmp = clean.lstrip()
+            if tmp.startswith("#"):
+                clean = tmp[1:].lstrip()
+
+        # 3) Now `clean` has no leading `//` or `#`, nor backticks/quotes
+        suggestion = clean
+
+        return suggestion
 
