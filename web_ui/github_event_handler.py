@@ -62,7 +62,7 @@ def process_pr_event(payload):
             repo_full_name
         )
 
-
+    print(f"Processing PR event for {repo_full_name} (Internal ID: {repo_internal_id})")
     from ai_content.main import CommentSmellAI
     ai_processor = CommentSmellAI()
 
@@ -73,6 +73,7 @@ def process_pr_event(payload):
 
     changed_files = utils.get_changed_files(payload) 
     for file in changed_files:
+        print(f"Processing file: {file['filename']}")
         comments = utils.extract_comments(file)
         file["comments_metadata"] = comments["metadata"]
         comments = add_context_to_comments(comments, file["content"], file["comments_metadata"]["lang"])
@@ -80,7 +81,7 @@ def process_pr_event(payload):
         file["comments"] = comments
         
         # TODO i probably should handle previous comments here 
-        # TODO remove method level comments
+        # TODO remove method level comments for java. python is already handled
         for comment_entry in comments:
             comment_block = comment_entry["comment"]
             associated_code = comment_entry["associated_code"]
@@ -91,7 +92,6 @@ def process_pr_event(payload):
                 comment_entry["repair_enabled"] = False 
                 comment_entry["repair_suggestion"] = None
             else:
-                comment_entry["repair_enabled"] = True 
 
                 if(smell_label == "Not A Smell"):
                     comment_entry["repair_enabled"] = False 
@@ -107,7 +107,6 @@ def process_pr_event(payload):
                     # now we have computed_start_line, computed_end_line, new_comment_block for each comment
                     response = utils.post_suggestions_to_github(payload, file["filename"], comment_entry)
                     comment_entry["github_response"] = response
-                    print(response)
             
     # # load changed files from the json
     # with open("payloads/changed_files.json", "r") as f:
@@ -172,6 +171,7 @@ def process_pr_event(payload):
                         status="Pending"
                     )
 
+    print(f"Pull request event processed for {repo_full_name} (Internal ID: {repo_internal_id})")
     
     return jsonify({
         "message": "Pull request event processed",

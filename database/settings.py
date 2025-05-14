@@ -19,7 +19,7 @@ def get_repo_settings(repo_internal_id):
     if not row:
         return {
             "create_issues": True,
-            "enabled_smells": [],
+            "enabled_smells": ["Misleading", "Obvious", "Commented out code", "Irrelevant", "Task", "Too much info", "Beautification", "Nonlocal info", "Vague"],
             "double_iteration": False
         }
 
