@@ -1,0 +1,6 @@
+Flask
+pyngrok
+PyJWT
+requests
+nirjas
+openai==0.28
