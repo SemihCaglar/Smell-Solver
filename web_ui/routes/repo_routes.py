@@ -148,6 +148,7 @@ def pr_analysis(repo_id, pr_number):
     FROM comment_smells
     WHERE pr_id = ?
         AND is_current = 1
+        AND repair_enabled = 1
     ORDER BY file_path, line
     """, (pr["id"],))
 
@@ -165,11 +166,11 @@ def pr_analysis(repo_id, pr_number):
             "url":        r["url"]
         })
 
-    # update file randomly
-    files = ["folder1/file1.java", "folder1/file2.java", "file3.java", "file4.java", "folder2/file1.java"]
-    #iterate over the smell_details and update the file randomly
-    for i in range(len(smell_details)):
-        smell_details[i]["file"] = files[i % len(files)]    
+    # # update file randomly
+    # files = ["folder1/file1.java", "folder1/file2.java", "file3.java", "file4.java", "folder2/file1.java"]
+    # #iterate over the smell_details and update the file randomly
+    # for i in range(len(smell_details)):
+    #     smell_details[i]["file"] = files[i % len(files)]    
     
     conn.close()
     file_groups = defaultdict(list)
@@ -202,9 +203,10 @@ def repo_settings(repo_id):
         # Retrieve form data
         create_issues = request.form.get('create_issues') == 'on'
         enabled_smells = request.form.getlist('enabled_smells')
+        double_iteration  = request.form.get('double_iteration') == 'on'
         
         # Update the settings in the database
-        database.update_repo_settings(repo_id, create_issues, enabled_smells)
+        database.update_repo_settings(repo_id, create_issues, enabled_smells, double_iteration)
         
         flash("Settings updated.", "success")
         return redirect(url_for('repo_routes.repo_settings', repo_id=repo_id))
@@ -212,9 +214,11 @@ def repo_settings(repo_id):
     # For GET: load current settings.
     # Retrieve settings from the database.
     # If not found, use default dummy settings.
+
     current_settings = {
         "create_issues": True,
-        "enabled_smells": ["Vague", "Misleading", "Obvious", "Beautification", "Commented-Out Code", "Attribution", "Too Much Information", "Non-Local", "No Comment", "Task"]
+        "enabled_smells": ["Misleading", "Obvious", "Commented out code", "Irrelevant", "Task", "Too much info", "Beautification", "Nonlocal info", "Vague"],
+        "double_iteration": False
     }
     # Try to fetch settings from the repo_settings table.
     settings_row = None
@@ -223,7 +227,7 @@ def repo_settings(repo_id):
         with sqlite3.connect(database.DB_PATH) as conn:
             c = conn.cursor()
             c.execute("""
-                SELECT create_issues, enabled_smells
+                SELECT create_issues, enabled_smells, double_iteration
                 FROM repo_settings
                 WHERE repo_internal_id = ?
             """, (repo_id,))
@@ -237,5 +241,6 @@ def repo_settings(repo_id):
             current_settings['enabled_smells'] = json.loads(settings_row[1])
         except Exception:
             current_settings['enabled_smells'] = []
+        current_settings['double_iteration'] = bool(settings_row[2])
     
     return render_template("repo_settings.html", repo_id=repo_id, settings=current_settings)

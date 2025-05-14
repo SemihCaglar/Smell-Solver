@@ -197,27 +197,3 @@ def update_file_record(file_id, blob_sha=None, status=None):
         c.execute(query, params)
         conn.commit()
 
-
-def update_repo_settings(repo_internal_id, create_issues, enabled_smells):
-    """
-    Update the repository settings for a given repository.
-    'create_issues' is a boolean.
-    'enabled_smells' is a list of strings.
-    """
-    settings_json = json.dumps(enabled_smells)
-    with sqlite3.connect(DB_PATH) as conn:
-        c = conn.cursor()
-        c.execute(
-            """
-            INSERT INTO repo_settings (
-                repo_internal_id,
-                create_issues,
-                enabled_smells
-            ) VALUES (?, ?, ?)
-            ON CONFLICT(repo_internal_id) DO UPDATE SET
-              create_issues = excluded.create_issues,
-              enabled_smells = excluded.enabled_smells
-            """,
-            (repo_internal_id, 1 if create_issues else 0, settings_json)
-        )
-        conn.commit()

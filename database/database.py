@@ -3,12 +3,20 @@ import sqlite3
 from database.installations_repositories import *
 from database.comments_files import *
 from database.pull_requests import *
+from database.settings import *
 from config import DB_PATH
 
 def init_db():
     """Initialize the database and create tables if they do not exist."""
     with sqlite3.connect(DB_PATH) as conn:
         c = conn.cursor()
+
+        # DROP old tables
+        c.execute("DROP TABLE IF EXISTS comment_smells;")
+        c.execute("DROP TABLE IF EXISTS pull_requests;")
+        c.execute("DROP TABLE IF EXISTS repo_settings;")
+        # (drop any other tables you want reset...)
+
         # 1. installations table
         c.execute("""
             CREATE TABLE IF NOT EXISTS installations (
@@ -57,16 +65,16 @@ def init_db():
                                     CHECK(side IN ('LEFT','RIGHT')),
             smell_type            TEXT    NOT NULL
                                     CHECK(smell_type IN (
-                                    'Vague',
-                                    'Misleading',
-                                    'Obvious',
-                                    'Beautification',
-                                    'Commented-Out Code',
-                                    'Attribution',
-                                    'Too Much Information',
-                                    'Non-Local',
-                                    'No Comment',
-                                    'Task'
+                                        'Misleading',
+                                        'Obvious',
+                                        'Commented out code',
+                                        'Irrelevant',
+                                        'Task',
+                                        'Too much info',
+                                        'Beautification',
+                                        'Nonlocal info',
+                                        'Vague',
+                                        'Not a smell'
                                     )),
             associated_code       TEXT    NOT NULL,                     -- the code block around the comment
             comment_body          TEXT    NOT NULL,                     -- what you originally posted
@@ -85,8 +93,9 @@ def init_db():
         c.execute("""
             CREATE TABLE IF NOT EXISTS repo_settings (
                 repo_internal_id TEXT PRIMARY KEY,
-                create_issues BOOLEAN DEFAULT 1,
-                enabled_smells TEXT,
+                create_issues BOOLEAN NOT NULL DEFAULT 1,
+                enabled_smells TEXT NOT NULL DEFAULT '[]',
+                double_iteration BOOLEAN NOT NULL DEFAULT 0,
                 FOREIGN KEY (repo_internal_id) REFERENCES repositories (internal_id)
             )
         """)

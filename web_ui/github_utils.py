@@ -155,18 +155,20 @@ def post_multiline_comment(url, token, path, start_line, end_line, head_sha, bas
 
 def post_suggestions_to_github(payload, path, comment_entry):
     # TODO check these explanations
+
     short_explanations = {
-        "misleading"        : "Comment does not correctly reflect what the code does.",
-        "obvious"           : "Redundant comment simply restates the code.",
-        "commented out code": "Dead code left in comments; should be removed.",
-        "irrelevant"        : "Comment is unrelated to explaining the code.",
-        "task"              : "TODO/FIXME note without actionable detail.",
-        "too much info"     : "Overly verbose comment that hurts readability.",
-        "beautification"    : "Decorative / section‑divider comment with no value.",
-        "nonlocal info"     : "Comment refers to code located elsewhere.",
-        "vague"             : "Comment is unclear or lacks meaningful detail.",
-        "not a smell"       : "Comment is clear and appropriate.",
+        "Misleading"        : "Comment does not correctly reflect what the code does.",
+        "Obvious"           : "Redundant comment simply restates the code.",
+        "Commented out code": "Dead code left in comments; should be removed.",
+        "Irrelevant"        : "Comment is unrelated to explaining the code.",
+        "Task"              : "TODO/FIXME note without actionable detail.",
+        "Too much info"     : "Overly verbose comment that hurts readability.",
+        "Beautification"    : "Decorative / section‑divider comment with no value.",
+        "Nonlocal info"     : "Comment refers to code located elsewhere.",
+        "Vague"             : "Comment is unclear or lacks meaningful detail.",
+        "Not a smell"       : "Comment is clear and appropriate.",
     }
+    
     smell_label = comment_entry["smell_label"]
     explanation = short_explanations.get(smell_label.lower(), "Comment smell detected.")
     new_content = comment_entry["new_comment_block"]

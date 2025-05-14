@@ -174,7 +174,7 @@ $(document).ready(function() {
 var smellRecords = {{ smell_reports_json|safe }};
 
 // Allowed smell types.
-var allowedSmells = ["Vague", "Misleading", "Obvious", "Beautification", "Commented-Out Code", "Attribution", "Too Much Information", "Non-Local", "No Comment", "Task"];
+var allowedSmells = ["Misleading", "Obvious", "Commented out code", "Irrelevant", "Task", "Too much info", "Beautification", "Nonlocal info", "Vague"];
 
 // Function to aggregate smell records by date and smell type.
 function aggregateSmellData(records) {

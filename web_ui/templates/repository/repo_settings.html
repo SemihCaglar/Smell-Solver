@@ -34,14 +34,34 @@
              {% if settings.create_issues %} checked {% endif %}>
       <label class="form-check-label" for="create_issues">Automatically Create Issues</label>
     </div>
+
+    <div class="form-group form-check">
+      <input
+        type="checkbox"
+        class="form-check-input"
+        id="double_iteration"
+        name="double_iteration"
+        {% if settings.double_iteration %} checked {% endif %}
+      >
+      <label class="form-check-label" for="double_iteration">
+        Use double-iteration repair algorithm
+      </label>
+    </div>
     
     <!-- Comment Smell Detection Options -->
     <h4>Enabled Comment Smells</h4>
     <div class="form-group">
+
       {% set allowed_smells = [
-          'Vague', 'Misleading', 'Obvious', 'Beautification', 
-          'Commented-Out Code', 'Attribution', 'Too Much Information', 
-          'Non-Local', 'No Comment', 'Task'
+        'Misleading',
+        'Obvious',
+        'Commented out code',
+        'Irrelevant',
+        'Task',
+        'Too much info',
+        'Beautification',
+        'Nonlocal info',
+        'Vague'
       ] %}
       {% for smell in allowed_smells %}
         <div class="form-check">

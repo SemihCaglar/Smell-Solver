@@ -66,41 +66,53 @@ def process_pr_event(payload):
     from ai_content.main import CommentSmellAI
     ai_processor = CommentSmellAI()
 
-    # changed_files = utils.get_changed_files(payload) 
-    # for file in changed_files:
-    #     comments = utils.extract_comments(file)
-    #     file["comments_metadata"] = comments["metadata"]
-    #     comments = add_context_to_comments(comments, file["content"], file["comments_metadata"]["lang"])
-    #     comments = filter_comments_by_diff_intersection(file["patch"], comments, file["content"])
-    #     file["comments"] = comments
+
+    # GET SETTINGS
+    settings = get_repo_settings(repo_internal_id)
+    enabled_smells = set(settings["enabled_smells"])
+
+    changed_files = utils.get_changed_files(payload) 
+    for file in changed_files:
+        comments = utils.extract_comments(file)
+        file["comments_metadata"] = comments["metadata"]
+        comments = add_context_to_comments(comments, file["content"], file["comments_metadata"]["lang"])
+        comments = filter_comments_by_diff_intersection(file["patch"], comments, file["content"])
+        file["comments"] = comments
         
-    #     # TODO i probably should handle previous comments here 
-    #     # TODO remove method level comments
-    #     for comment_entry in comments:
-    #         comment_block = comment_entry["comment"]
-    #         associated_code = comment_entry["associated_code"]
+        # TODO i probably should handle previous comments here 
+        # TODO remove method level comments
+        for comment_entry in comments:
+            comment_block = comment_entry["comment"]
+            associated_code = comment_entry["associated_code"]
 
-    #         # get suggestion
-    #         comment_entry["smell_label"] = ai_processor.detect_comment_smell(associated_code, comment_block)
-    #        # TODO look for settings enabled
-    #         comment_entry["repair_suggestion"] = ai_processor.repair_comment(associated_code, comment_block, comment_entry["smell_label"])
+            smell_label = ai_processor.detect_comment_smell(associated_code, comment_block) 
+            comment_entry["smell_label"] = smell_label
+            if(smell_label not in enabled_smells):
+                comment_entry["repair_enabled"] = False 
+                comment_entry["repair_suggestion"] = None
+            else:
+                comment_entry["repair_enabled"] = True 
 
-    #         # change content for the line range
-    #         comment_entry["new_comment_block"] = replace_comment_block(file["content"], comment_entry, file["comments_metadata"]["lang"])
+                if(smell_label == "Not A Smell"):
+                    comment_entry["repair_enabled"] = False 
+                    comment_entry["repair_suggestion"] = None
+                else: 
+                    #! REPAIR HERE
+                    comment_entry["repair_enabled"] = True
+                    comment_entry["repair_suggestion"] = ai_processor.repair_comment(associated_code, comment_block, smell_label)
+                
+                    # change content for the line range
+                    comment_entry["new_comment_block"] = replace_comment_block(file["content"], comment_entry, file["comments_metadata"]["lang"])
+
+                    # now we have computed_start_line, computed_end_line, new_comment_block for each comment
+                    response = utils.post_suggestions_to_github(payload, file["filename"], comment_entry)
+                    comment_entry["github_response"] = response
+                    print(response)
             
-    # load changed files from the json
-    with open("payloads/changed_files.json", "r") as f:
-        changed_files = json.load(f)
+    # # load changed files from the json
+    # with open("payloads/changed_files.json", "r") as f:
+    #     changed_files = json.load(f)
             
-    # for file in changed_files:
-    #     comments = file["comments"]
-    #     for comment_entry in comments:
-    #         comment_entry["new_comment_block"] = replace_comment_block(file["content"], comment_entry, file["comments_metadata"]["lang"])
-    #         # now we have computed_start_line, computed_end_line, new_comment_block for each comment
-    #         response = utils.post_suggestions_to_github(payload, file["filename"], comment_entry)
-    #         comment_entry["github_response"] = response
-    #         print(response)
-
     with open("payloads/changed_files.json", "w") as f:
         json.dump(changed_files, f, indent=4)
        
