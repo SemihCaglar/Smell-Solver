@@ -21,12 +21,13 @@ def main_page():
             flash("Invalid repository ID.", "danger")
         return redirect(url_for('main_routes.main_page'))
 
-    repos = database.get_repositories_by_internal_ids(session.get("internal_repo_ids", []))
+    # repos = database.get_repositories_by_internal_ids(session.get("internal_repo_ids", []))
+    repos = database.get_all_repositories()
     return render_template("home/main.html", repositories=repos)
 
 @main_bp.route('/install-success', methods=['GET'])
 def install_success():
-    time.sleep(2)
+    time.sleep(5)
     installation_id = request.args.get("installation_id")
     if not installation_id:
         return "Installation ID missing in query parameters.", 400
