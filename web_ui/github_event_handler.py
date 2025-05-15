@@ -88,6 +88,7 @@ def process_pr_event(payload):
 
             smell_label = ai_processor.detect_comment_smell(associated_code, comment_block) 
             comment_entry["smell_label"] = smell_label
+            # TODO create issue if label is task
             if(smell_label not in enabled_smells):
                 comment_entry["repair_enabled"] = False 
                 comment_entry["repair_suggestion"] = None
@@ -97,9 +98,16 @@ def process_pr_event(payload):
                     comment_entry["repair_enabled"] = False 
                     comment_entry["repair_suggestion"] = None
                 else: 
-                    #! REPAIR HERE
+                    #! REPAIR CODE GOES HERE
                     comment_entry["repair_enabled"] = True
-                    comment_entry["repair_suggestion"] = ai_processor.repair_comment(associated_code, comment_block, smell_label, file["comments_metadata"]["lang"])
+                    
+                    # check double iteration
+                    if settings["double_iteration"]==1:
+                        repair_suggestion = ai_processor.repair_comment_double_iteration(associated_code, comment_block, smell_label, file["comments_metadata"]["lang"])
+                    else:
+                        repair_suggestion = ai_processor.repair_comment(associated_code, comment_block, smell_label, file["comments_metadata"]["lang"])
+                        
+                    comment_entry["repair_suggestion"] = repair_suggestion
                 
                     # change content for the line range
                     comment_entry["new_comment_block"] = replace_comment_block(file["content"], comment_entry, file["comments_metadata"]["lang"])

@@ -126,3 +126,39 @@ Original comment:
 
         return suggestion
 
+    def repair_comment_double_iteration(self, code, comment, label, lang="java"):
+        """
+        For vague and misleading and too much info, we can
+        Perform a two-pass repair: first generate an initial suggestion,
+        then refine that suggestion with a second pass.
+
+        Args:
+            code (str): The associated code segment.
+            comment (str): The original comment text.
+            label (str): The detected smell label.
+            lang (str): Language marker for stripping comment prefixes.
+
+        Returns:
+            A string containing the twice-refined comment suggestion.
+        """
+        # If it's not a smell, just return the original
+        if label == "Not a smell":
+            return comment
+
+        # First pass repair
+        suggestion = self.repair_comment(code, comment, label, lang)
+        # If nothing came back (e.g. removal), return empty
+        if not suggestion:
+            return ""
+        
+        # Re-detect on the first suggestion
+        second_label = self.detect_comment_smell(code, suggestion)
+        
+        # Second pass repair
+        second_suggestion = self.repair_comment(
+            code,
+            suggestion,
+            second_label,
+            lang
+        )
+        return second_suggestion
