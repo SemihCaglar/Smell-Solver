@@ -47,6 +47,20 @@ def add_repository(installation_id, github_repo_id, repo_full_name):
                 internal_id = row[0]
     return internal_id
 
+def get_all_repositories():
+    """Retrieve all repositories from the database."""
+    with sqlite3.connect(DB_PATH) as conn:
+        c = conn.cursor()
+        c.execute("""
+            SELECT internal_id, github_repo_id, repo_full_name, installation_id 
+            FROM repositories
+        """)
+        rows = c.fetchall()
+    return [
+        {"internal_id": row[0], "github_repo_id": row[1], "repo_full_name": row[2], "installation_id": row[3]}
+        for row in rows
+    ]
+
 def get_repositories_by_internal_ids(internal_ids):
     """Retrieve repository details for all repositories whose internal_id is in the provided list."""
     if not internal_ids:
