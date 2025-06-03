@@ -170,7 +170,7 @@ def post_suggestions_to_github(payload, path, comment_entry):
     }
     
     smell_label = comment_entry["smell_label"]
-    explanation = short_explanations.get(smell_label.lower(), "Comment smell detected.")
+    explanation = short_explanations.get(smell_label, "Comment smell detected.")
     new_content = comment_entry["new_comment_block"]
     comment_body = f"""**{smell_label} smell** : {explanation}\n```suggestion\n{new_content}\n```"""
     

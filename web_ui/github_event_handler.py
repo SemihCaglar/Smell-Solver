@@ -87,6 +87,7 @@ def process_pr_event(payload):
             associated_code = comment_entry["associated_code"]
 
             smell_label = ai_processor.detect_comment_smell(associated_code, comment_block) 
+            # TODO what if smell_label is not in smells list
             comment_entry["smell_label"] = smell_label
             # TODO create issue if label is task
             if(smell_label not in enabled_smells):

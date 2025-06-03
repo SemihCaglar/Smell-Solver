@@ -197,3 +197,18 @@ def update_file_record(file_id, blob_sha=None, status=None):
         c.execute(query, params)
         conn.commit()
 
+def archive_file_smells(pr_id: int, file_path: str):
+    """
+    Mark all existing smells for this PR+file as no longer current.
+    TODO delete the github comment
+    """
+    with sqlite3.connect(DB_PATH) as conn:
+        c = conn.cursor()
+        c.execute("""
+            UPDATE comment_smells
+               SET is_current = 0
+             WHERE pr_id = ?
+               AND file_path = ?
+               AND is_current = 1
+        """, (pr_id, file_path))
+        conn.commit()
