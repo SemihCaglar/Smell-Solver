@@ -95,7 +95,7 @@ def process_pr_event(payload):
                 comment_entry["repair_suggestion"] = None
             else:
 
-                if(smell_label == "Not A Smell"):
+                if(smell_label == "Not a smell"):
                     comment_entry["repair_enabled"] = False 
                     comment_entry["repair_suggestion"] = None
                 else: 
@@ -160,7 +160,7 @@ def process_pr_event(payload):
             comment_body  = comment_entry["comment"]
             suggestion    = comment_entry.get("repair_suggestion", None)
             repair_flag   = comment_entry.get("repair_enabled", True)
-            is_smell        = (smell_type != "Not A Smell")        #! or however you flag non-smells
+            is_smell        = (smell_type != "Not a smell")        #! or however you flag non-smells
             associated_code = comment_entry["associated_code"]
 
             add_comment_smell(

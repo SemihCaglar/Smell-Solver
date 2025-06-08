@@ -185,3 +185,4 @@ config.py
 test/
 !requirements.txt
 render
+ai_content/ai_config.py

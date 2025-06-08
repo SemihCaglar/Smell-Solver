@@ -27,7 +27,7 @@ def extract_comments(file):
         file (dict): A dictionary containing file metadata, including its content.
 
     Returns:
-        str: The output of the `nirjas` command, or None if an error occurs.
+        dict: Parsed JSON output from the `nirjas` command, or None if an error occurs.
     """
     file_content = file.get("content")
     if not file_content:
